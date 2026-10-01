@@ -6,8 +6,8 @@
   "d1_databases": [
     {
       "binding": "D8",
-      "database_name": "bolagsinfo-dev",
-      "database_id": "4feaf02e-8e41-42e9-8a08-e41193cf9495"
+      "database_name": "bolagsinfo-prod",
+      "database_id": "5b341c46-18f2-4bc0-a6c4-10922cf584db"
     }
   ]
 }
