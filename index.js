@@ -1,6 +1,6 @@
 const SESSION_COOKIE = "bolagsinfo_session";
 const SESSION_DAYS = 7;
-const ACCESS_CODE_ITERATIONS = 120000;
+const ACCESS_CODE_ITERATIONS = 100000;
 
 function json(data, status = 200, headers = {}) {
   return Response.json(data, {
