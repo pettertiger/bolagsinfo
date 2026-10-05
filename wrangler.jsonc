@@ -3,11 +3,17 @@
   "name": "bolagsinfo",
   "main": "index.js",
   "compatibility_date": "2026-09-30",
-  "d1_databases": [
+ "d1_databases": [
     {
       "binding": "D8",
-      "database_name": "bolagsinfo-prod",
       "database_id": "5b341c46-18f2-4bc0-a6c4-10922cf584db"
+    }
+  ],
+  "secrets_store_secrets": [
+    {
+      "binding": "SCB_API_KEY",
+      "store_id": "6cf430d2f4c1402ebaa5dc174aa55983",
+      "secret_name": "SCB_API_KEY"
     }
   ]
 }
