@@ -19,5 +19,9 @@
       "store_id": "6cf430d2f4c1402ebaa5dc174aa55983",
       "secret_name": "SCB_API_KEY"
     }
-  ]
+  ],
+
+  "observability": {
+    "enabled": false
+  },
 }
