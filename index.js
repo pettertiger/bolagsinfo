@@ -208,7 +208,14 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/api/me") {
       const result = await requireSession(request, env);
-      return result.response || json({ user: result.session });
+      if (result.response) return result.response;
+      return json({
+        user: {
+          email: result.session.email,
+          displayName: result.session.display_name,
+          role: result.session.role
+        }
+      });
     }
 
     if (request.method === "GET" && url.pathname === "/api/contracts") {
@@ -287,8 +294,6 @@ export default {
       return json({ id: contractId }, 201);
     }
 
-    return new Response("Bolagsinfo Worker fungerar", {
-      headers: { "content-type": "text/plain; charset=UTF-8" }
-    });
+    return env.ASSETS.fetch(request);
   }
 };

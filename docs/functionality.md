@@ -12,7 +12,7 @@
 
 - Identify a user by their approved email and issue a separate random access code for each person. Do not accept a user identity supplied only by the browser.
 - Store only a salted, slow password-derived hash of each code in `app_user`; never store or log a code in plaintext. Provide a one-time, out-of-band way to distribute and replace codes.
-- Generate each initial hash locally with `node scripts/generate-access-code.mjs user@example.com`, then run the printed `UPDATE` statement in the development D1 Console. Repeat for all four users; never commit the printed statement or the codes.
+- Generate each hash locally with `node scripts/generate-access-code.mjs user@example.com`, then run the printed `UPDATE` statement in the target D1 Console. The generator uses 100,000 PBKDF2 iterations, the maximum supported by Cloudflare Workers Web Crypto. Repeat for all four users; never commit the printed statement or the codes.
 - Codes are a temporary authentication method, not equivalent to Microsoft sign-in. Use HTTPS, short-lived opaque sessions with `HttpOnly`, `Secure`, and `SameSite` cookies, CSRF protection for mutations, per-account and per-IP rate limits, and temporary lockout after repeated failures.
 - Run `database/migrations/0002_auth_login_attempt.sql` in the existing D1 database before deploying this Worker version. Five failed attempts for the same email/IP combination cause a 15-minute lockout.
 - `viewer` may read contracts and published statistics. Only `admin` may create, edit, or remove contracts, manage access, and run or publish imports. Enforce this in the Worker on every request, not just by hiding UI controls.

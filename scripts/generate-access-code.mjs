@@ -16,7 +16,7 @@ if (!code || code.length < 10) {
   process.exit(1);
 }
 
-const iterations = 120000;
+const iterations = 100000;
 const salt = randomBytes(16);
 const hash = pbkdf2Sync(code, salt, iterations, 32, "sha256");
 const encode = value => value.toString("base64url");
