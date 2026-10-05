@@ -218,6 +218,43 @@ export default {
       });
     }
 
+    if (request.method === "POST" && url.pathname === "/api/admin/scb/check") {
+      const result = await requireAdmin(request, env);
+      if (result.response) return result.response;
+
+      let apiKey;
+      try {
+        apiKey = await env.SCB_API_KEY.get();
+      } catch {
+        return json({ error: "SCB-nyckeln är inte tillgänglig för Workern." }, 503);
+      }
+      if (!apiKey) return json({ error: "SCB-nyckeln saknas i Secrets Store." }, 503);
+
+      let response;
+      try {
+        response = await fetch("https://apiafr.scb.se/v1/api-info", {
+          headers: { "X-API-Key": apiKey }
+        });
+      } catch {
+        return json({ error: "Kunde inte nå SCB:s API." }, 502);
+      }
+      if (!response.ok) {
+        const message = response.status === 401
+          ? "SCB avvisade API-nyckeln."
+          : response.status === 429
+            ? "SCB begränsade anropet. Försök igen senare."
+            : "SCB:s API svarade med ett fel.";
+        return json({ error: message }, 502);
+      }
+
+      const data = await response.json();
+      return json({
+        connected: true,
+        apiName: data.apiNamn || "SCB:s allmänna företagsregister API",
+        latestUpdate: data.senasteUppdateringsDatum || null
+      });
+    }
+
     if (request.method === "GET" && url.pathname === "/api/contracts") {
       const result = await requireSession(request, env);
       if (result.response) return result.response;

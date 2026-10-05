@@ -216,9 +216,10 @@
             <div class="source-line"><span class="source-mark" aria-hidden="true">SCB</span><span>Källa: <a href="https://www.scb.se/vara-tjanster/bestall-data-och-statistik/foretagsregistret/avgiftsfria-uppgifter-i-foretagsregistret/" target="_blank" rel="noreferrer">SCB:s företagsregister</a></span></div>
           </div>
           <div class="stats-state">
-            <span class="state-tag">Inväntar API-åtkomst</span>
+            <span class="state-tag" id="scb-connection-tag">SCB ej kontrollerat</span>
             <p class="state-month" id="reference-month"></p>
-            <p class="state-message">Första månadssammanställningen visas här när SCB-källan är ansluten.</p>
+            <p class="state-message" id="scb-connection-message" role="status">Testa anslutningen innan den första dataimporten.</p>
+            <button class="header-button" id="scb-check-button" type="button" hidden>Testa SCB-anslutning</button>
           </div>
         </div>
         <details class="history">
@@ -348,6 +349,7 @@
       document.querySelector("#account-label").textContent = `${user.displayName || user.email} · ${user.role === "admin" ? "Admin" : "Läsare"}`;
       document.querySelector("#logout-button").hidden = false;
       document.querySelector("#add-contract").hidden = user.role !== "admin";
+      document.querySelector("#scb-check-button").hidden = user.role !== "admin";
       document.querySelector("#save-note").textContent = "Ändringar delas med teamet";
       document.querySelector("#connection-status").textContent = "Ansluten till gemensam databas";
     }
@@ -358,6 +360,10 @@
 
     function formatDate(value) {
       return new Intl.DateTimeFormat("sv-SE", { day: "numeric", month: "short", year: "numeric" }).format(new Date(`${value}T00:00:00`));
+    }
+
+    function formatDateTime(value) {
+      return new Intl.DateTimeFormat("sv-SE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
     }
 
     function isExpired(contract) {
@@ -452,6 +458,26 @@
         await api("/api/logout", { method: "POST" });
       } finally {
         showLogin();
+      }
+    });
+
+    document.querySelector("#scb-check-button").addEventListener("click", async event => {
+      const button = event.currentTarget;
+      const tag = document.querySelector("#scb-connection-tag");
+      const message = document.querySelector("#scb-connection-message");
+      button.disabled = true;
+      message.textContent = "Kontrollerar anslutningen …";
+      try {
+        const data = await api("/api/admin/scb/check", { method: "POST" });
+        tag.textContent = "Ansluten till SCB";
+        message.textContent = data.latestUpdate
+          ? `${data.apiName}. Senaste uppdatering: ${formatDateTime(data.latestUpdate)}.`
+          : `${data.apiName}.`;
+      } catch (error) {
+        tag.textContent = "SCB-anslutning misslyckades";
+        message.textContent = error.message;
+      } finally {
+        button.disabled = false;
       }
     });
 
