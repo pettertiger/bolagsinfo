@@ -77,6 +77,7 @@
     .source-line a { text-decoration-color: #a2b3a9; text-underline-offset: 3px; }
     .source-mark { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: var(--soft-green); color: var(--forest); font-size: 10px; font-weight: 800; }
     .stats-state { display: flex; flex-direction: column; justify-content: center; padding: 27px 30px; background: var(--forest); color: white; position: relative; }
+    .stats-state .header-button { align-self: flex-start; margin-top: 12px; }
     .stats-state::after { position: absolute; top: -44px; right: -44px; width: 180px; height: 180px; border: 1px solid rgba(196,213,138,.24); border-radius: 50%; content: ""; }
     .state-tag { align-self: flex-start; display: flex; align-items: center; gap: 8px; margin-bottom: 22px; padding: 7px 10px; border: 1px solid rgba(255,255,255,.24); border-radius: 3px; color: #f4dfb8; font-size: 11px; font-weight: 700; }
     .state-tag::before { width: 6px; height: 6px; border-radius: 50%; background: #edbd72; content: ""; }
@@ -220,6 +221,7 @@
             <p class="state-month" id="reference-month"></p>
             <p class="state-message" id="scb-connection-message" role="status">Testa anslutningen innan den första dataimporten.</p>
             <button class="header-button" id="scb-check-button" type="button" hidden>Testa SCB-anslutning</button>
+            <button class="header-button" id="scb-import-button" type="button" hidden>Skapa baslinje</button>
           </div>
         </div>
         <details class="history">
@@ -317,6 +319,7 @@
       if (!response.ok) {
         const error = new Error(data?.error || "Begäran misslyckades. Försök igen.");
         error.status = response.status;
+        error.retryAfter = response.headers.get("retry-after");
         if (response.status === 401 && path !== "/api/login") showLogin();
         throw error;
       }
@@ -350,6 +353,7 @@
       document.querySelector("#logout-button").hidden = false;
       document.querySelector("#add-contract").hidden = user.role !== "admin";
       document.querySelector("#scb-check-button").hidden = user.role !== "admin";
+      document.querySelector("#scb-import-button").hidden = user.role !== "admin";
       document.querySelector("#save-note").textContent = "Ändringar delas med teamet";
       document.querySelector("#connection-status").textContent = "Ansluten till gemensam databas";
     }
@@ -476,6 +480,46 @@
       } catch (error) {
         tag.textContent = "SCB-anslutning misslyckades";
         message.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    document.querySelector("#scb-import-button").addEventListener("click", async event => {
+      const button = event.currentTarget;
+      const tag = document.querySelector("#scb-connection-tag");
+      const message = document.querySelector("#scb-connection-message");
+      button.disabled = true;
+      tag.textContent = "Baslinje importeras";
+      let retries = 0;
+      try {
+        while (true) {
+          let data;
+          try {
+            data = await api("/api/admin/scb/import", { method: "POST" });
+            retries = 0;
+          } catch (error) {
+            if (![429, 503].includes(error.status) || retries >= 5) throw error;
+            retries += 1;
+            const retrySeconds = Math.max(1, Math.min(Number(error.retryAfter) || 2, 30));
+            message.textContent = `SCB tillfälligt otillgängligt. Försöker igen om ${retrySeconds} sekunder …`;
+            await new Promise(resolve => setTimeout(resolve, retrySeconds * 1000));
+            continue;
+          }
+
+          if (data.status === "ready") {
+            tag.textContent = "Baslinje klar";
+            message.textContent = `${data.recordCount.toLocaleString("sv-SE")} bolag sparade för ${data.referenceMonth.slice(0, 7)}${data.alreadyImported ? " (redan importerad)" : ""}.`;
+            button.hidden = true;
+            break;
+          }
+
+          message.textContent = `Anställdaklass ${data.employeeClass} av 7 · sida ${data.pageCount} · ${data.recordCount.toLocaleString("sv-SE")} bolag sparade.`;
+          await new Promise(resolve => setTimeout(resolve, 350));
+        }
+      } catch (error) {
+        tag.textContent = "Baslinje pausad";
+        message.textContent = `${error.message} Klicka på Skapa baslinje för att återuppta.`;
       } finally {
         button.disabled = false;
       }

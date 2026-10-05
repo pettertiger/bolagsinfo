@@ -159,6 +159,21 @@ function mutationAudit(action, actorId, entityId, details = {}) {
   ];
 }
 
+function employeeCategory(code) {
+  if (code === 0) return "unknown";
+  if (code >= 1 && code <= 5) return "under_50";
+  if (code === 6) return "50_99";
+  if (code === 7) return "100_199";
+  if (code >= 8 && code <= 16) return "200_plus";
+  return null;
+}
+
+function normalizeScbOrgNumber(value) {
+  if (typeof value !== "string") return null;
+  const digits = value.replace(/\D/g, "");
+  return /^\d{10}$/.test(digits) ? digits : null;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -252,6 +267,229 @@ export default {
         connected: true,
         apiName: data.apiNamn || "SCB:s allmänna företagsregister API",
         latestUpdate: data.senasteUppdateringsDatum || null
+      });
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/admin/scb/import") {
+      const result = await requireAdmin(request, env);
+      if (result.response) return result.response;
+
+      try {
+        await env.D8.prepare("SELECT 1 FROM scb_import_progress LIMIT 1").first();
+      } catch {
+        return json({ error: "Kör SCB-importmigrering 0003 på D1 innan baslinjen startas." }, 500);
+      }
+
+      const referenceMonth = `${new Date().toISOString().slice(0, 7)}-01`;
+      let batch = await env.D8.prepare(`
+        SELECT id, reference_month, status, record_count
+        FROM scb_import_batch
+        WHERE reference_month = ? AND status = 'staging'
+        ORDER BY id DESC LIMIT 1
+      `).bind(referenceMonth).first();
+
+      if (!batch) {
+        batch = await env.D8.prepare(`
+          SELECT id, reference_month, status, record_count
+          FROM scb_import_batch
+          WHERE reference_month = ? AND status = 'ready'
+          ORDER BY id DESC LIMIT 1
+        `).bind(referenceMonth).first();
+        if (batch) {
+          return json({ status: "ready", referenceMonth, recordCount: batch.record_count, alreadyImported: true });
+        }
+
+        const inserted = await env.D8.prepare(`
+          INSERT INTO scb_import_batch (reference_month, status, source_version, created_by)
+          VALUES (?, 'staging', 'v1', ?)
+        `).bind(referenceMonth, result.session.id).run();
+        batch = { id: inserted.meta.last_row_id, reference_month: referenceMonth, status: "staging" };
+        await env.D8.prepare(`
+          INSERT INTO scb_import_progress (import_batch_id, employee_class)
+          VALUES (?, 1)
+        `).bind(batch.id).run();
+      }
+
+      const progress = await env.D8.prepare(`
+        SELECT employee_class, cursor_id, page_count, stored_count, skipped_count
+        FROM scb_import_progress
+        WHERE import_batch_id = ?
+      `).bind(batch.id).first();
+      if (!progress) return json({ error: "SCB-importmigreringen saknas i databasen." }, 500);
+
+      const lease = await env.D8.prepare(`
+        UPDATE scb_import_progress
+        SET lease_until = datetime('now', '+2 minutes')
+        WHERE import_batch_id = ?
+          AND (lease_until IS NULL OR datetime(lease_until) <= datetime('now'))
+      `).bind(batch.id).run();
+      if (!lease.meta.changes) return json({ error: "En SCB-import körs redan." }, 409);
+
+      const releaseLease = () => env.D8.prepare(`
+        UPDATE scb_import_progress SET lease_until = NULL WHERE import_batch_id = ?
+      `).bind(batch.id).run();
+
+      let apiKey;
+      try {
+        apiKey = await env.SCB_API_KEY.get();
+      } catch {
+        await releaseLease();
+        return json({ error: "SCB-nyckeln är inte tillgänglig för Workern." }, 500);
+      }
+      if (!apiKey) {
+        await releaseLease();
+        return json({ error: "SCB-nyckeln saknas i Secrets Store." }, 500);
+      }
+
+      const scbUrl = new URL(`https://apiafr.scb.se/v1/juridiskaenheter/anstalldaklass/${progress.employee_class}`);
+      scbUrl.searchParams.set("limit", "100");
+      if (progress.cursor_id !== null) scbUrl.searchParams.set("cursorId", String(progress.cursor_id));
+
+      let scbResponse;
+      try {
+        scbResponse = await fetch(scbUrl, { headers: { "X-API-Key": apiKey } });
+      } catch {
+        await releaseLease();
+        return json({ error: "Kunde inte nå SCB. Importen kan återupptas." }, 503, { "retry-after": "2" });
+      }
+      if (!scbResponse.ok) {
+        await releaseLease();
+        if (scbResponse.status === 429) {
+          return json(
+            { error: "SCB begränsade anropet. Importen kan återupptas." },
+            429,
+            { "retry-after": scbResponse.headers.get("retry-after") || "2" }
+          );
+        }
+        if (scbResponse.status >= 500) {
+          return json(
+            { error: "SCB är tillfälligt otillgängligt. Importen kan återupptas." },
+            503,
+            { "retry-after": scbResponse.headers.get("retry-after") || "2" }
+          );
+        }
+        let problemText = "";
+        try {
+          const problem = await scbResponse.json();
+          problemText = [problem?.title, problem?.detail]
+            .filter(value => typeof value === "string" && value.trim())
+            .join(": ")
+            .slice(0, 400);
+        } catch {
+          problemText = "";
+        }
+        const failure = `SCB svarade med HTTP ${scbResponse.status}${problemText ? `: ${problemText}` : "."}`;
+        if (scbResponse.status < 500) {
+          await env.D8.prepare(`
+            UPDATE scb_import_batch SET status = 'failed', error_message = ? WHERE id = ?
+          `).bind(failure, batch.id).run();
+        }
+        return json({ error: failure }, 502);
+      }
+
+      let scbData;
+      try {
+        scbData = await scbResponse.json();
+      } catch {
+        await releaseLease();
+        await env.D8.prepare(`
+          UPDATE scb_import_batch SET status = 'failed', error_message = 'Ogiltigt JSON-svar från SCB.' WHERE id = ?
+        `).bind(batch.id).run();
+        return json({ error: "SCB:s svar kunde inte läsas. Importbatchen har markerats som misslyckad." }, 502);
+      }
+
+      const page = scbData?.jes;
+      const pagination = scbData?.pagination;
+      const hasMore = pagination?.hasMore;
+      const nextCursorId = pagination?.nextCursorId;
+      if (!Array.isArray(page) || page.length > 100 || typeof hasMore !== "boolean" ||
+          (hasMore && (!Number.isInteger(nextCursorId) || nextCursorId === progress.cursor_id))) {
+        await releaseLease();
+        await env.D8.prepare(`
+          UPDATE scb_import_batch SET status = 'failed', error_message = 'Ogiltigt sid- eller pagineringssvar från SCB.' WHERE id = ?
+        `).bind(batch.id).run();
+        return json({ error: "SCB:s sid- eller pagineringssvar var ogiltigt. Importbatchen har markerats som misslyckad." }, 502);
+      }
+
+      const category = employeeCategory(progress.employee_class);
+      const statements = [];
+      let skipped = 0;
+      for (const record of page) {
+        const recordClass = typeof record?.anstKl === "string" ? record.anstKl : String(record?.anstKl ?? "");
+        if (!/^\d+$/.test(recordClass) || Number(recordClass) !== progress.employee_class) {
+          await releaseLease();
+          await env.D8.prepare(`
+            UPDATE scb_import_batch SET status = 'failed', error_message = 'Ov e4ntad anst e4lldaklass i SCB-svaret.' WHERE id = ?
+          `).bind(batch.id).run();
+          return json({ error: "SCB returnerade en oväntad anställdaklass. Importbatchen har markerats som misslyckad." }, 502);
+        }
+        const organizationNumber = normalizeScbOrgNumber(record.orgNr);
+        const companyName = typeof record.namn === "string" ? record.namn.trim() : "";
+        if (!organizationNumber || !companyName) {
+          skipped += 1;
+          continue;
+        }
+        statements.push(env.D8.prepare(`
+          INSERT INTO company (organization_number) VALUES (?)
+          ON CONFLICT (organization_number) DO NOTHING
+        `).bind(organizationNumber));
+        statements.push(env.D8.prepare(`
+          INSERT INTO company_month_snapshot (
+            import_batch_id, company_id, company_name, employee_category, employee_count, source_record_id
+          )
+          SELECT ?, id, ?, ?, NULL, NULL
+          FROM company WHERE organization_number = ?
+          ON CONFLICT (import_batch_id, company_id) DO UPDATE SET
+            company_name = excluded.company_name,
+            employee_category = excluded.employee_category,
+            employee_count = NULL
+        `).bind(batch.id, companyName, category, organizationNumber));
+      }
+
+      const nextClass = hasMore ? progress.employee_class : progress.employee_class + 1;
+      const completed = !hasMore && progress.employee_class === 7;
+      statements.push(env.D8.prepare(`
+        UPDATE scb_import_progress
+        SET employee_class = ?, cursor_id = ?, page_count = page_count + 1,
+            stored_count = (SELECT COUNT(*) FROM company_month_snapshot WHERE import_batch_id = ?),
+            skipped_count = skipped_count + ?, lease_until = NULL,
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        WHERE import_batch_id = ?
+      `).bind(nextClass, hasMore ? nextCursorId : null, batch.id, skipped, batch.id));
+      statements.push(env.D8.prepare(`
+        UPDATE scb_import_batch
+        SET status = ?,
+            record_count = (SELECT COUNT(*) FROM company_month_snapshot WHERE import_batch_id = ?),
+            completed_at = CASE WHEN ? = 1 THEN strftime('%Y-%m-%dT%H:%M:%fZ', 'now') ELSE NULL END,
+            error_message = NULL
+        WHERE id = ?
+      `).bind(completed ? "ready" : "staging", batch.id, completed ? 1 : 0, batch.id));
+      if (completed) {
+        const audit = mutationAudit("scb_imported", result.session.id, batch.id, { referenceMonth, sourceVersion: "v1" });
+        statements.push(env.D8.prepare(audit[0]).bind(...audit[1]));
+      }
+
+      try {
+        await env.D8.batch(statements);
+      } catch {
+        await releaseLease();
+        return json({ error: "Kunde inte spara SCB-sidan. Importen kan återupptas." }, 503);
+      }
+
+      const updated = await env.D8.prepare(`
+        SELECT b.status, b.reference_month, b.record_count, p.employee_class, p.page_count, p.stored_count, p.skipped_count
+        FROM scb_import_batch b
+        JOIN scb_import_progress p ON p.import_batch_id = b.id
+        WHERE b.id = ?
+      `).bind(batch.id).first();
+      return json({
+        status: updated.status,
+        referenceMonth: updated.reference_month,
+        recordCount: updated.record_count || 0,
+        employeeClass: updated.employee_class,
+        pageCount: updated.page_count,
+        skippedCount: updated.skipped_count,
+        completed
       });
     }
 
