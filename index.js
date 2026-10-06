@@ -1,6 +1,7 @@
 const SESSION_COOKIE = "bolagsinfo_session";
 const SESSION_DAYS = 7;
 const ACCESS_CODE_ITERATIONS = 100000;
+const SCB_BASELINE_VERSION = "adjacent-employee-classes-v1";
 
 function json(data, status = 200, headers = {}) {
   return Response.json(data, {
@@ -161,7 +162,8 @@ function mutationAudit(action, actorId, entityId, details = {}) {
 
 function employeeCategory(code) {
   if (code === 0) return "unknown";
-  if (code >= 1 && code <= 5) return "under_50";
+  if (code >= 1 && code <= 4) return "under_50";
+  if (code === 5) return "20_49";
   if (code === 6) return "50_99";
   if (code === 7) return "100_199";
   if (code >= 8 && code <= 16) return "200_plus";
@@ -279,34 +281,50 @@ export default {
       } catch {
         return json({ error: "Kör SCB-importmigrering 0003 på D1 innan baslinjen startas." }, 500);
       }
+      const snapshotSchema = await env.D8.prepare(`
+        SELECT sql FROM sqlite_master
+        WHERE type = 'table' AND name = 'company_month_snapshot'
+      `).first();
+      if (!snapshotSchema?.sql?.includes("'20_49'")) {
+        return json({ error: "Kör SCB-importmigrering 0004 på D1 innan baslinjen startas." }, 500);
+      }
 
       const referenceMonth = `${new Date().toISOString().slice(0, 7)}-01`;
       let batch = await env.D8.prepare(`
-        SELECT id, reference_month, status, record_count
+        SELECT id, reference_month, status, record_count, source_version
         FROM scb_import_batch
         WHERE reference_month = ? AND status = 'staging'
         ORDER BY id DESC LIMIT 1
       `).bind(referenceMonth).first();
 
+      if (batch && batch.source_version !== SCB_BASELINE_VERSION) {
+        await env.D8.prepare(`
+          UPDATE scb_import_batch
+          SET status = 'failed', error_message = 'Baslinjeurvalet ändrades till SCB-klasserna 5–7.'
+          WHERE id = ? AND status = 'staging'
+        `).bind(batch.id).run();
+        batch = null;
+      }
+
       if (!batch) {
         batch = await env.D8.prepare(`
           SELECT id, reference_month, status, record_count
           FROM scb_import_batch
-          WHERE reference_month = ? AND status = 'ready'
+          WHERE reference_month = ? AND status = 'ready' AND source_version = ?
           ORDER BY id DESC LIMIT 1
-        `).bind(referenceMonth).first();
+        `).bind(referenceMonth, SCB_BASELINE_VERSION).first();
         if (batch) {
           return json({ status: "ready", referenceMonth, recordCount: batch.record_count, alreadyImported: true });
         }
 
         const inserted = await env.D8.prepare(`
           INSERT INTO scb_import_batch (reference_month, status, source_version, created_by)
-          VALUES (?, 'staging', 'v1', ?)
-        `).bind(referenceMonth, result.session.id).run();
+          VALUES (?, 'staging', ?, ?)
+        `).bind(referenceMonth, SCB_BASELINE_VERSION, result.session.id).run();
         batch = { id: inserted.meta.last_row_id, reference_month: referenceMonth, status: "staging" };
         await env.D8.prepare(`
           INSERT INTO scb_import_progress (import_batch_id, employee_class)
-          VALUES (?, 1)
+          VALUES (?, 5)
         `).bind(batch.id).run();
       }
 
@@ -465,7 +483,10 @@ export default {
         WHERE id = ?
       `).bind(completed ? "ready" : "staging", batch.id, completed ? 1 : 0, batch.id));
       if (completed) {
-        const audit = mutationAudit("scb_imported", result.session.id, batch.id, { referenceMonth, sourceVersion: "v1" });
+        const audit = mutationAudit("scb_imported", result.session.id, batch.id, {
+          referenceMonth,
+          sourceVersion: SCB_BASELINE_VERSION
+        });
         statements.push(env.D8.prepare(audit[0]).bind(...audit[1]));
       }
 

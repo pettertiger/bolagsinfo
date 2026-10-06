@@ -96,7 +96,7 @@ CREATE TABLE company_month_snapshot (
     company_id INTEGER NOT NULL REFERENCES company(id) ON DELETE RESTRICT,
     company_name TEXT NOT NULL,
     employee_category TEXT NOT NULL CHECK (
-        employee_category IN ('under_50', '50_99', '100_199', '200_plus', 'unknown')
+        employee_category IN ('under_50', '20_49', '50_99', '100_199', '200_plus', 'unknown')
     ),
     employee_count INTEGER CHECK (employee_count IS NULL OR employee_count >= 0),
     source_record_id TEXT,
@@ -133,7 +133,9 @@ CREATE TABLE monthly_summary_entry (
     current_snapshot_id INTEGER NOT NULL,
     previous_snapshot_id INTEGER NOT NULL,
     company_name_at_publication TEXT NOT NULL,
-    previous_category TEXT NOT NULL CHECK (previous_category = 'under_50'),
+    previous_category TEXT NOT NULL CHECK (
+        previous_category IN ('under_50', '20_49', '100_199')
+    ),
     current_category TEXT NOT NULL DEFAULT '50_99' CHECK (current_category = '50_99'),
     employee_count_at_publication INTEGER CHECK (
         employee_count_at_publication IS NULL OR employee_count_at_publication BETWEEN 50 AND 99
