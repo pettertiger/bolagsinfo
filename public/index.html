@@ -90,6 +90,16 @@
     .history[open] summary::after { content: "−"; }
     .history-content { padding: 0 0 19px; color: var(--muted); font-size: 13px; line-height: 1.6; }
     .history-content p { margin: 0; }
+    .summary-section { margin-top: 28px; border: 1px solid var(--line); background: white; box-shadow: var(--shadow); }
+    .summary-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
+    .summary-head h3 { margin: 0 0 4px; font-size: 17px; }
+    .summary-meta { margin: 0; color: var(--muted); font-size: 12px; }
+    .summary-empty { padding: 24px 20px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+    .summary-table td { height: 48px; }
+    .summary-category { color: #52645b; white-space: nowrap; }
+    .history-list { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
+    .history-list button { padding: 0; border: 0; background: none; color: var(--forest); font: inherit; font-weight: 700; text-align: left; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+    .history-list span { margin-left: 8px; color: var(--muted); font-weight: 400; }
     .contracts { margin-top: 48px; }
     .contracts-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; margin-bottom: 20px; }
     .contracts-head h2 { margin-bottom: 5px; font-size: 25px; }
@@ -226,8 +236,18 @@
         </div>
         <details class="history">
           <summary>Tidigare månader</summary>
-          <div class="history-content"><p>Historiska listor visas här när den första SCB-sammanställningen har skapats. Varje månad sparas separat med bolagets anställdauppgift vid sammanställningen.</p></div>
+          <div class="history-content"><ul class="history-list" id="history-list"><li>Hämtar publicerade månader …</li></ul></div>
         </details>
+        <section class="summary-section" aria-labelledby="summary-heading">
+          <div class="summary-head">
+            <div><h3 id="summary-heading">Aktuell månadslista</h3><p class="summary-meta" id="summary-meta"></p></div>
+            <div>
+              <button class="header-button" id="show-latest-button" type="button" hidden>Visa senaste</button>
+              <button class="header-button" id="publish-button" type="button" hidden>Jämför och publicera</button>
+            </div>
+          </div>
+          <div id="summary-content" aria-live="polite"><div class="summary-empty">Logga in för att visa publicerade listor.</div></div>
+        </section>
       </section>
 
       <section class="section contracts" id="avtal" aria-labelledby="contracts-heading">
@@ -289,6 +309,7 @@
     let currentUser = null;
     let currentFilter = "all";
     let sortAscending = true;
+    let latestSummary = null;
     let toastTimer;
     let requestSequence = 0;
 
@@ -339,8 +360,12 @@
       document.querySelector("#account-label").textContent = "Logga in för att fortsätta";
       document.querySelector("#logout-button").hidden = true;
       document.querySelector("#add-contract").hidden = true;
+      document.querySelector("#publish-button").hidden = true;
+      document.querySelector("#show-latest-button").hidden = true;
       document.querySelector("#save-note").textContent = "Gemensam avtalslista";
       document.querySelector("#connection-status").textContent = "Inloggning krävs";
+      document.querySelector("#summary-content").innerHTML = '<div class="summary-empty">Logga in för att visa publicerade listor.</div>';
+      document.querySelector("#history-list").innerHTML = "<li>Logga in för att visa historik.</li>";
       document.querySelector("#login-error").textContent = message;
       document.querySelector("#login-error").hidden = !message;
       renderContracts();
@@ -354,6 +379,7 @@
       document.querySelector("#add-contract").hidden = user.role !== "admin";
       document.querySelector("#scb-check-button").hidden = user.role !== "admin";
       document.querySelector("#scb-import-button").hidden = user.role !== "admin";
+      document.querySelector("#publish-button").hidden = user.role !== "admin";
       document.querySelector("#save-note").textContent = "Ändringar delas med teamet";
       document.querySelector("#connection-status").textContent = "Ansluten till gemensam databas";
     }
@@ -368,6 +394,11 @@
 
     function formatDateTime(value) {
       return new Intl.DateTimeFormat("sv-SE", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+    }
+
+    function formatMonth(value) {
+      return new Intl.DateTimeFormat("sv-SE", { month: "long", year: "numeric" })
+        .format(new Date(`${value.slice(0, 7)}-01T00:00:00`));
     }
 
     function isExpired(contract) {
@@ -419,6 +450,93 @@
       }
     }
 
+    function renderSummary(summary) {
+      const heading = document.querySelector("#summary-heading");
+      const meta = document.querySelector("#summary-meta");
+      const content = document.querySelector("#summary-content");
+      const showLatestButton = document.querySelector("#show-latest-button");
+      heading.textContent = summary
+        ? `Månadslista · ${formatMonth(summary.month_start)}`
+        : "Aktuell månadslista";
+      if (!summary) {
+        meta.textContent = "";
+        content.innerHTML = '<div class="summary-empty">Ingen månadslista är publicerad ännu. En jämförelse kräver baslinjer för två på varandra följande månader.</div>';
+        showLatestButton.hidden = true;
+        return;
+      }
+
+      meta.textContent = `Publicerad ${formatDateTime(summary.published_at)} · ${summary.entries.length.toLocaleString("sv-SE")} bolag · revision ${summary.revision}`;
+      showLatestButton.hidden = !latestSummary || summary.id === latestSummary.id;
+      if (!summary.entries.length) {
+        content.innerHTML = '<div class="summary-empty">Inga bolag uppfyllde kriterierna för förflyttning till kategorin 50–99 anställda den här månaden.</div>';
+        return;
+      }
+      const previousCategoryNames = {
+        "20_49": "20–49 anställda",
+        "100_199": "100–199 anställda"
+      };
+      content.innerHTML = `
+        <div class="table-scroll">
+          <table class="summary-table">
+            <thead><tr><th scope="col">Bolag</th><th scope="col">Föregående kategori</th><th scope="col">Nuvarande kategori</th></tr></thead>
+            <tbody>${summary.entries.map(entry => `
+              <tr>
+                <td class="company-name">${escapeHTML(entry.company_name)}</td>
+                <td class="summary-category">${previousCategoryNames[entry.previous_category] || escapeHTML(entry.previous_category)}</td>
+                <td class="summary-category">${entry.employee_count_at_publication ?? "50–99"} anställda</td>
+              </tr>
+            `).join("")}</tbody>
+          </table>
+        </div>`;
+    }
+
+    async function loadStatistics() {
+      try {
+        const [currentData, archiveData] = await Promise.all([
+          api("/api/statistics/current"),
+          api("/api/statistics/months")
+        ]);
+        latestSummary = currentData.summary;
+        renderSummary(latestSummary);
+
+        const tag = document.querySelector("#scb-connection-tag");
+        const message = document.querySelector("#scb-connection-message");
+        const referenceMonth = document.querySelector("#reference-month");
+        const publishButton = document.querySelector("#publish-button");
+        const importButton = document.querySelector("#scb-import-button");
+        const thisMonth = `${new Date().toISOString().slice(0, 7)}-01`;
+        if (currentData.baseline) {
+          referenceMonth.textContent = `Senaste baslinje: ${formatMonth(currentData.baseline.reference_month)}`;
+          tag.textContent = `Baslinje ${currentData.baseline.reference_month.slice(0, 7)} klar`;
+          importButton.hidden = currentUser?.role !== "admin" || currentData.baseline.reference_month === thisMonth;
+        } else {
+          referenceMonth.textContent = "";
+          tag.textContent = "Ingen SCB-baslinje";
+          importButton.hidden = currentUser?.role !== "admin";
+        }
+        publishButton.hidden = currentUser?.role !== "admin" || !currentData.comparisonAvailable;
+        if (currentData.comparisonAvailable) {
+          message.textContent = `Baslinjerna ${formatMonth(currentData.comparison.previousMonth)} och ${formatMonth(currentData.comparison.currentMonth)} kan jämföras och publiceras.`;
+        } else if (currentData.comparisonAlreadyPublished) {
+          message.textContent = "Den senaste jämförbara månadslistan är redan publicerad.";
+        } else if (currentData.baseline) {
+          message.textContent = `Nästa steg är en baslinje för månaden efter ${formatMonth(currentData.baseline.reference_month)}. En jämförelse kan publiceras när två intilliggande månader finns.`;
+        } else {
+          message.textContent = "Skapa en baslinje från SCB. En jämförelse kan publiceras när två intilliggande månadsbaslinjer finns.";
+        }
+
+        const historyList = document.querySelector("#history-list");
+        historyList.innerHTML = archiveData.months.length
+          ? archiveData.months.map(month => `
+              <li><button type="button" data-month="${escapeHTML(month.month_start.slice(0, 7))}">${escapeHTML(formatMonth(month.month_start))}</button>
+                <span>${month.company_count.toLocaleString("sv-SE")} bolag${month.revision > 1 ? ` · revision ${month.revision}` : ""}</span></li>
+            `).join("")
+          : "<li>Inga tidigare månadslistor är publicerade ännu.</li>";
+      } catch (error) {
+        if (error.status !== 401) showToast(error.message);
+      }
+    }
+
     function openContractDialog(contract = null) {
       contractForm.reset();
       document.querySelector("#contract-id").value = contract?.id ?? "";
@@ -447,7 +565,7 @@
         codeInput.value = "";
         setUser(data.user);
         loginDialog.close();
-        await loadContracts();
+        await Promise.all([loadContracts(), loadStatistics()]);
       } catch (error) {
         codeInput.value = "";
         document.querySelector("#login-error").textContent = error.message;
@@ -511,6 +629,7 @@
             tag.textContent = "Baslinje klar";
             message.textContent = `${data.recordCount.toLocaleString("sv-SE")} bolag sparade för ${data.referenceMonth.slice(0, 7)}${data.alreadyImported ? " (redan importerad)" : ""}.`;
             button.hidden = true;
+            await loadStatistics();
             break;
           }
 
@@ -522,6 +641,34 @@
         message.textContent = `${error.message} Klicka på Skapa baslinje för att återuppta.`;
       } finally {
         button.disabled = false;
+      }
+    });
+
+    document.querySelector("#publish-button").addEventListener("click", async event => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        const data = await api("/api/admin/statistics/publish", { method: "POST" });
+        showToast(data.alreadyPublished
+          ? `Listan för ${formatMonth(data.summary.month_start)} var redan publicerad.`
+          : `Listan för ${formatMonth(data.summary.month_start)} har publicerats.`);
+        await loadStatistics();
+      } catch (error) {
+        showToast(error.message);
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    document.querySelector("#show-latest-button").addEventListener("click", () => renderSummary(latestSummary));
+    document.querySelector("#history-list").addEventListener("click", async event => {
+      const button = event.target.closest("button[data-month]");
+      if (!button) return;
+      try {
+        const data = await api(`/api/statistics/months/${button.dataset.month}`);
+        renderSummary(data.summary);
+      } catch (error) {
+        showToast(error.message);
       }
     });
 
@@ -585,12 +732,11 @@
       }
     });
 
-    document.querySelector("#reference-month").textContent = `Referensmånad: ${new Intl.DateTimeFormat("sv-SE", { month: "long", year: "numeric" }).format(new Date())}`;
     rows.innerHTML = '<tr><td class="empty-row" colspan="5">Hämtar avtal …</td></tr>';
     api("/api/me")
       .then(async data => {
         setUser(data.user);
-        await loadContracts();
+        await Promise.all([loadContracts(), loadStatistics()]);
       })
       .catch(error => {
         if (error.status === 401) showLogin();

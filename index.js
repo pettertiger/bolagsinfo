@@ -176,6 +176,29 @@ function normalizeScbOrgNumber(value) {
   return /^\d{10}$/.test(digits) ? digits : null;
 }
 
+const compatibleComparisonQuery = `
+  WITH ranked_batches AS (
+    SELECT id, reference_month, fetched_at,
+      ROW_NUMBER() OVER (
+        PARTITION BY reference_month
+        ORDER BY fetched_at DESC, id DESC
+      ) AS month_rank
+    FROM scb_import_batch
+    WHERE status = 'ready' AND source_version = ?
+  )
+  SELECT current.id AS current_import_id,
+         current.reference_month AS current_month,
+         previous.id AS previous_import_id,
+         previous.reference_month AS previous_month
+  FROM ranked_batches current
+  JOIN ranked_batches previous
+    ON previous.reference_month = date(current.reference_month, '-1 month')
+   AND previous.month_rank = 1
+  WHERE current.month_rank = 1
+  ORDER BY current.reference_month DESC, current.id DESC
+  LIMIT 1
+`;
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -233,6 +256,264 @@ export default {
           role: result.session.role
         }
       });
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/statistics/current") {
+      const result = await requireSession(request, env);
+      if (result.response) return result.response;
+
+      const summary = await env.D8.prepare(`
+        SELECT id, month_start, revision, current_import_id, previous_import_id, published_at
+        FROM monthly_summary
+        WHERE status = 'published'
+        ORDER BY month_start DESC, revision DESC
+        LIMIT 1
+      `).first();
+      const baseline = await env.D8.prepare(`
+        SELECT reference_month, record_count
+        FROM scb_import_batch
+        WHERE status = 'ready' AND source_version = ?
+        ORDER BY reference_month DESC, fetched_at DESC, id DESC
+        LIMIT 1
+      `).bind(SCB_BASELINE_VERSION).first();
+      const comparison = await env.D8.prepare(compatibleComparisonQuery)
+        .bind(SCB_BASELINE_VERSION)
+        .first();
+      const comparisonAlreadyPublished = comparison
+        ? Boolean(await env.D8.prepare(`
+            SELECT 1
+            FROM monthly_summary
+            WHERE status = 'published'
+              AND current_import_id = ? AND previous_import_id = ?
+            LIMIT 1
+          `).bind(comparison.current_import_id, comparison.previous_import_id).first())
+        : false;
+
+      let entries = [];
+      if (summary) {
+        const resultSet = await env.D8.prepare(`
+          SELECT company_name_at_publication AS company_name,
+                 previous_category, current_category, employee_count_at_publication
+          FROM monthly_summary_entry
+          WHERE summary_id = ?
+          ORDER BY company_name_at_publication COLLATE NOCASE, company_id
+        `).bind(summary.id).all();
+        entries = resultSet.results;
+      }
+      return json({
+        summary: summary ? { ...summary, entries } : null,
+        baseline,
+        comparisonAvailable: Boolean(comparison) && !comparisonAlreadyPublished,
+        comparisonAlreadyPublished,
+        comparison: comparison
+          ? { previousMonth: comparison.previous_month, currentMonth: comparison.current_month }
+          : null
+      });
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/statistics/months") {
+      const result = await requireSession(request, env);
+      if (result.response) return result.response;
+      const resultSet = await env.D8.prepare(`
+        WITH latest_summaries AS (
+          SELECT id, month_start, revision, published_at,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY month_start ORDER BY revision DESC
+                 ) AS month_rank
+          FROM monthly_summary
+          WHERE status = 'published'
+        )
+        SELECT m.month_start, m.revision, m.published_at, COUNT(e.id) AS company_count
+        FROM latest_summaries m
+        LEFT JOIN monthly_summary_entry e ON e.summary_id = m.id
+        WHERE m.month_rank = 1
+        GROUP BY m.id
+        ORDER BY m.month_start DESC
+      `).all();
+      return json({ months: resultSet.results });
+    }
+
+    const statisticsMonthMatch = url.pathname.match(/^\/api\/statistics\/months\/(\d{4}-\d{2})$/);
+    if (request.method === "GET" && statisticsMonthMatch) {
+      const result = await requireSession(request, env);
+      if (result.response) return result.response;
+      const monthStart = `${statisticsMonthMatch[1]}-01`;
+      const validMonth = await env.D8.prepare("SELECT date(?) = ? AS valid")
+        .bind(monthStart, monthStart)
+        .first();
+      if (!validMonth?.valid) return json({ error: "Ogiltig referensmånad." }, 400);
+      const summary = await env.D8.prepare(`
+        SELECT id, month_start, revision, current_import_id, previous_import_id, published_at
+        FROM monthly_summary
+        WHERE month_start = ? AND status = 'published'
+        ORDER BY revision DESC
+        LIMIT 1
+      `).bind(monthStart).first();
+      if (!summary) return json({ error: "Det finns ingen publicerad lista för månaden." }, 404);
+      const resultSet = await env.D8.prepare(`
+        SELECT company_name_at_publication AS company_name,
+               previous_category, current_category, employee_count_at_publication
+        FROM monthly_summary_entry
+        WHERE summary_id = ?
+        ORDER BY company_name_at_publication COLLATE NOCASE, company_id
+      `).bind(summary.id).all();
+      return json({ summary: { ...summary, entries: resultSet.results } });
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/admin/statistics/publish") {
+      const result = await requireAdmin(request, env);
+      if (result.response) return result.response;
+      const comparison = await env.D8.prepare(compatibleComparisonQuery)
+        .bind(SCB_BASELINE_VERSION)
+        .first();
+      if (!comparison) {
+        return json({
+          error: "Det finns ännu inga färdiga baslinjer för två på varandra följande månader med samma SCB-urval."
+        }, 409);
+      }
+
+      const existing = await env.D8.prepare(`
+        SELECT id, month_start, revision, published_at
+        FROM monthly_summary
+        WHERE status = 'published'
+          AND current_import_id = ? AND previous_import_id = ?
+        ORDER BY revision DESC
+        LIMIT 1
+      `).bind(comparison.current_import_id, comparison.previous_import_id).first();
+      if (existing) {
+        const count = await env.D8.prepare(`
+          SELECT COUNT(*) AS company_count FROM monthly_summary_entry WHERE summary_id = ?
+        `).bind(existing.id).first();
+        return json({
+          alreadyPublished: true,
+          summary: { ...existing, companyCount: count.company_count },
+          previousMonth: comparison.previous_month
+        });
+      }
+
+      const statements = [
+        env.D8.prepare(`
+          INSERT INTO monthly_summary (
+            month_start, revision, current_import_id, previous_import_id,
+            status, generated_at, created_by
+          )
+          SELECT
+            ?, (SELECT COALESCE(MAX(revision), 0) + 1 FROM monthly_summary WHERE month_start = ?),
+            ?, ?, 'draft', strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), ?
+          WHERE NOT EXISTS (
+            SELECT 1 FROM monthly_summary
+            WHERE status = 'published' AND current_import_id = ? AND previous_import_id = ?
+          )
+        `).bind(
+          comparison.current_month,
+          comparison.current_month,
+          comparison.current_import_id,
+          comparison.previous_import_id,
+          result.session.id,
+          comparison.current_import_id,
+          comparison.previous_import_id
+        ),
+        env.D8.prepare(`
+          INSERT INTO monthly_summary_entry (
+            summary_id, company_id, current_snapshot_id, previous_snapshot_id,
+            company_name_at_publication, previous_category, current_category,
+            employee_count_at_publication
+          )
+          SELECT
+            (SELECT id FROM monthly_summary
+             WHERE month_start = ? AND current_import_id = ? AND previous_import_id = ?
+               AND status = 'draft'
+             ORDER BY revision DESC LIMIT 1),
+            current.company_id, current.id, previous.id, current.company_name,
+            previous.employee_category, current.employee_category,
+            CASE WHEN current.employee_count BETWEEN 50 AND 99 THEN current.employee_count ELSE NULL END
+          FROM company_month_snapshot current
+          JOIN company_month_snapshot previous ON previous.company_id = current.company_id
+          WHERE current.import_batch_id = ?
+            AND previous.import_batch_id = ?
+            AND current.employee_category = '50_99'
+            AND previous.employee_category IN ('20_49', '100_199')
+            AND EXISTS (
+              SELECT 1 FROM monthly_summary
+              WHERE month_start = ? AND current_import_id = ? AND previous_import_id = ?
+                AND status = 'draft'
+            )
+        `).bind(
+          comparison.current_month,
+          comparison.current_import_id,
+          comparison.previous_import_id,
+          comparison.current_import_id,
+          comparison.previous_import_id,
+          comparison.current_month,
+          comparison.current_import_id,
+          comparison.previous_import_id
+        ),
+        env.D8.prepare(`
+          UPDATE monthly_summary
+          SET status = 'published', published_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+          WHERE month_start = ? AND current_import_id = ? AND previous_import_id = ?
+            AND status = 'draft'
+            AND revision = (
+              SELECT MAX(revision) FROM monthly_summary
+              WHERE month_start = ? AND current_import_id = ? AND previous_import_id = ?
+            )
+        `).bind(
+          comparison.current_month,
+          comparison.current_import_id,
+          comparison.previous_import_id,
+          comparison.current_month,
+          comparison.current_import_id,
+          comparison.previous_import_id
+        ),
+        env.D8.prepare(`
+          INSERT INTO audit_event (actor_id, action, entity_id, details_json)
+          SELECT ?, 'summary_published', id,
+                 json_object('month', month_start, 'revision', revision,
+                             'currentImportId', current_import_id,
+                             'previousImportId', previous_import_id)
+          FROM monthly_summary
+          WHERE month_start = ? AND current_import_id = ? AND previous_import_id = ?
+            AND status = 'published'
+            AND NOT EXISTS (
+              SELECT 1 FROM audit_event
+              WHERE action = 'summary_published' AND entity_id = monthly_summary.id
+            )
+            AND revision = (
+              SELECT MAX(revision) FROM monthly_summary
+              WHERE month_start = ? AND current_import_id = ? AND previous_import_id = ?
+            )
+        `).bind(
+          result.session.id,
+          comparison.current_month,
+          comparison.current_import_id,
+          comparison.previous_import_id,
+          comparison.current_month,
+          comparison.current_import_id,
+          comparison.previous_import_id
+        )
+      ];
+      const publicationResults = await env.D8.batch(statements);
+
+      const published = await env.D8.prepare(`
+        SELECT id, month_start, revision, published_at
+        FROM monthly_summary
+        WHERE status = 'published'
+          AND current_import_id = ? AND previous_import_id = ?
+        ORDER BY revision DESC
+        LIMIT 1
+      `).bind(comparison.current_import_id, comparison.previous_import_id).first();
+      if (!published) {
+        return json({ error: "Månadslistan kunde inte publiceras." }, 500);
+      }
+      const count = await env.D8.prepare(`
+        SELECT COUNT(*) AS company_count FROM monthly_summary_entry WHERE summary_id = ?
+      `).bind(published.id).first();
+      const alreadyPublished = publicationResults[0].meta.changes === 0;
+      return json({
+        alreadyPublished,
+        summary: { ...published, companyCount: count.company_count },
+        previousMonth: comparison.previous_month
+      }, alreadyPublished ? 200 : 201);
     }
 
     if (request.method === "POST" && url.pathname === "/api/admin/scb/check") {

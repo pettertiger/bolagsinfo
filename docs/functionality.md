@@ -29,12 +29,12 @@
 1. Fetch SCB data in a Worker and write it to an import batch with status `staging`. The admin baseline action fetches only employee-size classes 5-7 from the legal-entity API: 20-49, 50-99, and 100-199 employees. Each 100-row cursor page is saved atomically with its cursor so an interrupted import can be resumed.
 2. Normalize each company to its stable organization number and map its employee category. Store an exact count only when SCB supplies it.
 3. Validate completeness and counts. Mark a successful batch `ready`; a failed batch must not replace the last usable batch.
-4. Compare compatible ready batches from consecutive reference months. Include a company only when its current category is `50_99` and its previous category is `20_49` or `100_199`, so the source category is visible. Do not compare with older broad baselines where `under_50` combines classes 1-5; missing or unknown prior data is not verified movement.
+4. An administrator can publish a comparison only when ready batches from consecutive reference months use the same baseline selection. Include a company only when its current category is `50_99` and its previous category is `20_49` or `100_199`, so the source category is visible. Do not compare with older broad baselines where `under_50` combines classes 1-5; missing or unknown prior data is not verified movement.
 5. Save the generated list as a new `monthly_summary` revision. Published entries retain the company name and employee count as they were at publication. Later SCB revisions must not rewrite old summaries.
 
 If SCB does not provide an exact employee count, show `50-99`, not an invented number. A latest available count is a separate value with its own reference month.
 
-Before using the admin baseline action, apply `database/migrations/0003_scb_import_progress.sql` and then `database/migrations/0004_scb_adjacent_employee_classes.sql` to the production D1 database with `npx wrangler d1 execute 5b341c46-18f2-4bc0-a6c4-10922cf584db --remote --file=database/migrations/0003_scb_import_progress.sql` and `npx wrangler d1 execute 5b341c46-18f2-4bc0-a6c4-10922cf584db --remote --file=database/migrations/0004_scb_adjacent_employee_classes.sql`. Then deploy the Worker. The narrowed baseline is a new reference point; it does not publish a growth list because SCB's API has no historical data. A comparison becomes possible after the next monthly snapshot with the same class selection.
+Before using the admin baseline action, apply `database/migrations/0003_scb_import_progress.sql` and then `database/migrations/0004_scb_adjacent_employee_classes.sql` to the production D1 database with `npx wrangler d1 execute 5b341c46-18f2-4bc0-a6c4-10922cf584db --remote --file=database/migrations/0003_scb_import_progress.sql` and `npx wrangler d1 execute 5b341c46-18f2-4bc0-a6c4-10922cf584db --remote --file=database/migrations/0004_scb_adjacent_employee_classes.sql`. Then deploy the Worker. The narrowed baseline is a new reference point; it does not publish a growth list because SCB's API has no historical data. A comparison becomes possible after the next monthly snapshot with the same class selection. Publication creates an immutable revision and an audit event; repeat requests for the same pair of baselines return the already-published revision.
 
 ## Suggested Worker API
 
@@ -47,7 +47,8 @@ Before using the admin baseline action, apply `database/migrations/0003_scb_impo
 - `DELETE /api/contracts/{id}` - admin-only manual removal (soft delete).
 - `GET /api/statistics/months` - published month archive.
 - `GET /api/statistics/months/{YYYY-MM}` - one immutable monthly list.
-- `GET /api/statistics/current` - latest published list and latest known exact counts.
+- `GET /api/statistics/current` - latest published list, latest compatible baseline, and comparison readiness.
+- `POST /api/admin/statistics/publish` - admin-only comparison and publication of the latest consecutive compatible baselines.
 - `POST /api/admin/scb/import` - admin-only server-side import/retry; never expose SCB credentials to the browser.
 
 Initial development setup: run the login-attempt migration, generate and apply one hash per approved user, deploy the Worker, then test `POST /api/login` with a browser/client that preserves cookies. A direct browser visit to `/api/contracts` without a session should return HTTP 401.
