@@ -51,6 +51,12 @@ Before using the admin baseline action, apply `database/migrations/0003_scb_impo
 - `POST /api/admin/statistics/publish` - admin-only comparison and publication of the latest consecutive compatible baselines.
 - `POST /api/admin/scb/import` - admin-only server-side import/retry; never expose SCB credentials to the browser.
 
+## Production deployment and domain
+
+- The production Worker is configured with `bolagsinfo.lantero.online` as a Cloudflare Custom Domain. Cloudflare manages the DNS record and TLS certificate for this hostname; deployment requires the `lantero.online` zone to be active in the same Cloudflare account.
+- The hostname previously served a parked Loopia page. Replacing it with the Bolagsinfo application is intentional.
+- Deploy with `npx wrangler deploy`, then verify the homepage and HTTPS at `https://bolagsinfo.lantero.online`.
+
 Initial development setup: run the login-attempt migration, generate and apply one hash per approved user, deploy the Worker, then test `POST /api/login` with a browser/client that preserves cookies. A direct browser visit to `/api/contracts` without a session should return HTTP 401.
 
 ## Decisions before deployment
