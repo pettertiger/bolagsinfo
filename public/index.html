@@ -155,6 +155,8 @@
     @media (max-width: 760px) {
       .topbar-inner { min-height: 64px; padding: 0 20px; }
       .user-area .user-label, .brand-divider, .product-name { display: none; }
+      .user-area { gap: 6px; }
+      .user-area .header-button { padding: 0 7px; font-size: 10px; }
       main { padding: 24px 20px 56px; }
       .page-head { align-items: flex-start; flex-direction: column; margin-top: 19px; }
       .stats-band { grid-template-columns: 1fr; }
@@ -167,8 +169,10 @@
       .footer { padding: 18px 20px 25px; }
     }
     @media (max-width: 480px) {
-      .topbar-inner { padding: 0 16px; }
+      .topbar-inner { gap: 8px; padding: 0 16px; }
       .brand-name { font-size: 18px; }
+      .brand { gap: 8px; }
+      .auth-dot { display: none; }
       .prototype-pill { padding: 6px 8px; font-size: 9px; }
       main { padding-right: 15px; padding-left: 15px; }
       .save-note { white-space: normal; }
@@ -194,7 +198,7 @@
           <span class="brand-divider" aria-hidden="true"></span>
           <span class="product-name">Bolagsbevakning</span>
         </a>
-        <div class="user-area"><span class="auth-dot" aria-hidden="true"></span><span class="user-label" id="account-label">Kontrollerar session …</span><button class="header-button" id="logout-button" type="button" hidden>Logga ut</button></div>
+        <div class="user-area"><span class="auth-dot" aria-hidden="true"></span><span class="user-label" id="account-label">Kontrollerar session …</span><button class="header-button" id="change-code-button" type="button" hidden>Byt åtkomstkod</button><button class="header-button" id="logout-button" type="button" hidden>Logga ut</button></div>
       </div>
     </header>
 
@@ -291,6 +295,18 @@
     </form>
   </dialog>
 
+  <dialog id="access-code-dialog" aria-labelledby="access-code-title">
+    <div class="dialog-head"><div><p class="eyebrow">Säker åtkomst</p><h2 id="access-code-title">Byt åtkomstkod</h2></div><button class="dialog-close" id="close-access-code-dialog" type="button" aria-label="Stäng">×</button></div>
+    <form class="contract-form" id="access-code-form">
+      <div class="field"><label for="current-access-code">Nuvarande åtkomstkod</label><input id="current-access-code" name="currentCode" type="password" required autocomplete="current-password"></div>
+      <div class="field"><label for="new-access-code">Ny åtkomstkod</label><input id="new-access-code" name="newCode" type="password" minlength="10" maxlength="256" required autocomplete="new-password" aria-describedby="access-code-hint"></div>
+      <p class="summary-meta" id="access-code-hint">Använd minst 10 tecken. Övriga aktiva sessioner loggas ut när koden byts.</p>
+      <div class="field"><label for="confirm-access-code">Upprepa ny åtkomstkod</label><input id="confirm-access-code" name="confirmCode" type="password" minlength="10" maxlength="256" required autocomplete="new-password"></div>
+      <p class="login-error" id="access-code-error" role="alert" hidden></p>
+      <div class="dialog-actions"><button class="button-secondary" id="cancel-access-code" type="button">Avbryt</button><button class="button-primary" id="submit-access-code" type="submit">Byt åtkomstkod</button></div>
+    </form>
+  </dialog>
+
   <dialog id="contract-dialog" aria-labelledby="dialog-title">
     <div class="dialog-head"><div><p class="eyebrow">Avtalsbevakning</p><h2 id="dialog-title">Lägg till avtal</h2></div><button class="dialog-close" id="close-dialog" type="button" aria-label="Stäng">×</button></div>
     <form class="contract-form" id="contract-form">
@@ -318,6 +334,8 @@
     const resultCount = document.querySelector("#result-count");
     const loginDialog = document.querySelector("#login-dialog");
     const loginForm = document.querySelector("#login-form");
+    const accessCodeDialog = document.querySelector("#access-code-dialog");
+    const accessCodeForm = document.querySelector("#access-code-form");
     const contractDialog = document.querySelector("#contract-dialog");
     const contractForm = document.querySelector("#contract-form");
     const toast = document.querySelector("#toast");
@@ -359,6 +377,7 @@
       contracts = [];
       document.querySelector("#account-label").textContent = "Logga in för att fortsätta";
       document.querySelector("#logout-button").hidden = true;
+      document.querySelector("#change-code-button").hidden = true;
       document.querySelector("#add-contract").hidden = true;
       document.querySelector("#publish-button").hidden = true;
       document.querySelector("#show-latest-button").hidden = true;
@@ -376,6 +395,7 @@
       currentUser = user;
       document.querySelector("#account-label").textContent = `${user.displayName || user.email} · ${user.role === "admin" ? "Admin" : "Läsare"}`;
       document.querySelector("#logout-button").hidden = false;
+      document.querySelector("#change-code-button").hidden = false;
       document.querySelector("#add-contract").hidden = user.role !== "admin";
       document.querySelector("#scb-check-button").hidden = user.role !== "admin";
       document.querySelector("#scb-import-button").hidden = user.role !== "admin";
@@ -572,6 +592,48 @@
         document.querySelector("#login-error").hidden = false;
       } finally {
         submit.disabled = false;
+      }
+    });
+
+    document.querySelector("#change-code-button").addEventListener("click", () => {
+      accessCodeForm.reset();
+      document.querySelector("#access-code-error").hidden = true;
+      accessCodeDialog.showModal();
+      document.querySelector("#current-access-code").focus();
+    });
+    document.querySelector("#close-access-code-dialog").addEventListener("click", () => accessCodeDialog.close());
+    document.querySelector("#cancel-access-code").addEventListener("click", () => accessCodeDialog.close());
+    accessCodeForm.addEventListener("submit", async event => {
+      event.preventDefault();
+      const currentCode = document.querySelector("#current-access-code").value;
+      const newCode = document.querySelector("#new-access-code").value;
+      const confirmCode = document.querySelector("#confirm-access-code").value;
+      const submit = document.querySelector("#submit-access-code");
+      const errorMessage = document.querySelector("#access-code-error");
+      if (newCode !== confirmCode) {
+        errorMessage.textContent = "De nya koderna stämmer inte överens.";
+        errorMessage.hidden = false;
+        return;
+      }
+
+      submit.disabled = true;
+      errorMessage.hidden = true;
+      try {
+        await api("/api/me/access-code", {
+          method: "POST",
+          body: JSON.stringify({ currentCode, newCode })
+        });
+        accessCodeDialog.close();
+        showToast("Åtkomstkoden har bytts. Dina andra aktiva sessioner har loggats ut.");
+        await Promise.all([loadContracts(), loadStatistics()]);
+      } catch (error) {
+        errorMessage.textContent = error.message;
+        errorMessage.hidden = false;
+      } finally {
+        submit.disabled = false;
+        document.querySelector("#current-access-code").value = "";
+        document.querySelector("#new-access-code").value = "";
+        document.querySelector("#confirm-access-code").value = "";
       }
     });
 

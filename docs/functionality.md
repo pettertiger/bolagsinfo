@@ -13,6 +13,7 @@
 - Identify a user by their approved email and issue a separate random access code for each person. Do not accept a user identity supplied only by the browser.
 - Store only a salted, slow password-derived hash of each code in `app_user`; never store or log a code in plaintext. Provide a one-time, out-of-band way to distribute and replace codes.
 - Generate each hash locally with `node scripts/generate-access-code.mjs user@example.com`, then run the printed `UPDATE` statement in the target D1 Console. The generator uses 100,000 PBKDF2 iterations, the maximum supported by Cloudflare Workers Web Crypto. Repeat for all four users; never commit the printed statement or the codes.
+- Signed-in users can change their own access code from the account header after confirming the current code. New codes must be 10–256 characters. A successful change replaces all active sessions for that account with the current session and records the change in `access_code_change`.
 - Codes are a temporary authentication method, not equivalent to Microsoft sign-in. Use HTTPS, short-lived opaque sessions with `HttpOnly`, `Secure`, and `SameSite` cookies, CSRF protection for mutations, per-account and per-IP rate limits, and temporary lockout after repeated failures.
 - Run `database/migrations/0002_auth_login_attempt.sql` in the existing D1 database before deploying this Worker version. Five failed attempts for the same email/IP combination cause a 15-minute lockout.
 - `viewer` may read contracts and published statistics. Only `admin` may create, edit, or remove contracts, manage access, and run or publish imports. Enforce this in the Worker on every request, not just by hiding UI controls.
@@ -41,6 +42,7 @@ Before using the admin baseline action, apply `database/migrations/0003_scb_impo
 - `POST /api/login` with `{ "email": "...", "code": "..." }` - creates a seven-day session cookie.
 - `POST /api/logout` - revokes the current session.
 - `GET /api/me` - returns the authenticated user and role.
+- `POST /api/me/access-code` with `{ "currentCode": "...", "newCode": "..." }` - changes the signed-in user's code, revokes their other sessions, and issues a replacement session cookie.
 - `GET /api/contracts?status=all|upcoming|expired&q=` - active contracts, sorted by date.
 - `POST /api/contracts` - admin-only add.
 - `PATCH /api/contracts/{id}` - admin-only edit, including expected `version`.
@@ -50,6 +52,8 @@ Before using the admin baseline action, apply `database/migrations/0003_scb_impo
 - `GET /api/statistics/current` - latest published list, latest compatible baseline, and comparison readiness.
 - `POST /api/admin/statistics/publish` - admin-only comparison and publication of the latest consecutive compatible baselines.
 - `POST /api/admin/scb/import` - admin-only server-side import/retry; never expose SCB credentials to the browser.
+
+Apply `database/migrations/0005_access_code_change.sql` to the production D1 database before deploying a Worker version with self-service access-code changes.
 
 ## Production deployment and domain
 

@@ -258,6 +258,84 @@ export default {
       });
     }
 
+    if (request.method === "POST" && url.pathname === "/api/me/access-code") {
+      const result = await requireSession(request, env);
+      if (result.response) return result.response;
+
+      const body = await readJson(request);
+      const currentCode = typeof body?.currentCode === "string" ? body.currentCode : "";
+      const newCode = typeof body?.newCode === "string" ? body.newCode : "";
+      if (!currentCode || currentCode.length > 256 || newCode.length < 10 || newCode.length > 256 || newCode === currentCode) {
+        return json({ error: "Ange nuvarande kod och en ny kod på 10–256 tecken som skiljer sig från den nuvarande." }, 400);
+      }
+
+      const identifier = await loginIdentifier(request, result.session.email);
+      if (await isLoginLocked(env, identifier)) {
+        return json({ error: "För många försök. Försök igen senare." }, 429);
+      }
+
+      const user = await env.D8.prepare(`
+        SELECT access_code_salt, access_code_hash, access_code_iterations
+        FROM app_user
+        WHERE id = ? AND is_active = 1
+      `).bind(result.session.id).first();
+      const currentHash = user?.access_code_salt && user?.access_code_hash
+        ? await deriveAccessCodeHash(currentCode, user.access_code_salt, user.access_code_iterations)
+        : "";
+      if (!user || !currentHash || !constantTimeEqual(currentHash, user.access_code_hash)) {
+        await recordFailedLogin(env, identifier);
+        return json({ error: "Nuvarande åtkomstkod är felaktig." }, 400);
+      }
+
+      await clearFailedLogins(env, identifier);
+      const salt = toBase64Url(crypto.getRandomValues(new Uint8Array(16)));
+      const newHash = await deriveAccessCodeHash(newCode, salt);
+      const token = toBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+      const tokenHash = toBase64Url(await digest(token));
+      const sessionId = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + SESSION_DAYS * 86400000).toISOString();
+      const results = await env.D8.batch([
+        env.D8.prepare(`
+          UPDATE app_user
+          SET access_code_salt = ?, access_code_hash = ?, access_code_iterations = ?
+          WHERE id = ? AND access_code_salt = ? AND access_code_hash = ?
+        `).bind(
+          salt,
+          newHash,
+          ACCESS_CODE_ITERATIONS,
+          result.session.id,
+          user.access_code_salt,
+          user.access_code_hash
+        ),
+        env.D8.prepare(`
+          UPDATE auth_session
+          SET revoked_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+          WHERE user_id = ? AND revoked_at IS NULL
+            AND EXISTS (
+              SELECT 1 FROM app_user WHERE id = ? AND access_code_hash = ?
+            )
+        `).bind(result.session.id, result.session.id, newHash),
+        env.D8.prepare(`
+          INSERT INTO auth_session (id, user_id, token_hash, expires_at)
+          SELECT ?, id, ?, ?
+          FROM app_user
+          WHERE id = ? AND access_code_hash = ?
+        `).bind(sessionId, tokenHash, expiresAt, result.session.id, newHash),
+        env.D8.prepare(`
+          INSERT INTO access_code_change (user_id)
+          SELECT id FROM app_user WHERE id = ? AND access_code_hash = ?
+        `).bind(result.session.id, newHash)
+      ]);
+      if (!results[2].meta.changes) {
+        return json({ error: "Koden har ändrats i en annan session. Logga in igen och försök på nytt." }, 409);
+      }
+      return json(
+        { ok: true },
+        200,
+        { "set-cookie": sessionCookie(token, expiresAt) }
+      );
+    }
+
     if (request.method === "GET" && url.pathname === "/api/statistics/current") {
       const result = await requireSession(request, env);
       if (result.response) return result.response;
