@@ -93,6 +93,9 @@
     .summary-section { margin-top: 28px; border: 1px solid var(--line); background: white; box-shadow: var(--shadow); }
     .summary-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--line); }
     .summary-head h3 { margin: 0 0 4px; font-size: 17px; }
+    .summary-head .header-button { border-color: var(--forest); background: var(--forest); color: white; }
+    .summary-head .header-button:hover { background: var(--forest-dark); }
+    .summary-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
     .summary-meta { margin: 0; color: var(--muted); font-size: 12px; }
     .summary-empty { padding: 24px 20px; color: var(--muted); font-size: 13px; line-height: 1.6; }
     .summary-table td { height: 48px; }
@@ -246,9 +249,10 @@
         <section class="summary-section" aria-labelledby="summary-heading">
           <div class="summary-head">
             <div><h3 id="summary-heading">Aktuell månadslista</h3><p class="summary-meta" id="summary-meta"></p></div>
-            <div>
+            <div class="summary-actions">
               <button class="header-button" id="show-latest-button" type="button" hidden>Visa senaste</button>
               <button class="header-button" id="publish-button" type="button" hidden>Jämför och publicera</button>
+              <button class="header-button" id="export-summary-button" type="button" hidden>Ladda ner Excel</button>
             </div>
           </div>
           <div id="summary-content" aria-live="polite"><div class="summary-empty">Logga in för att visa publicerade listor.</div></div>
@@ -327,6 +331,7 @@
     let currentFilter = "all";
     let sortAscending = true;
     let latestSummary = null;
+    let displayedSummary = null;
     let toastTimer;
     let requestSequence = 0;
 
@@ -381,7 +386,9 @@
       document.querySelector("#change-code-button").hidden = true;
       document.querySelector("#add-contract").hidden = true;
       document.querySelector("#publish-button").hidden = true;
+      document.querySelector("#export-summary-button").hidden = true;
       document.querySelector("#show-latest-button").hidden = true;
+      displayedSummary = null;
       document.querySelector("#save-note").textContent = "Gemensam avtalslista";
       document.querySelector("#connection-status").textContent = "Inloggning krävs";
       document.querySelector("#summary-content").innerHTML = '<div class="summary-empty">Logga in för att visa publicerade listor.</div>';
@@ -420,6 +427,120 @@
     function formatMonth(value) {
       return new Intl.DateTimeFormat("sv-SE", { month: "long", year: "numeric" })
         .format(new Date(`${value.slice(0, 7)}-01T00:00:00`));
+    }
+
+    function xmlEscape(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+    }
+
+    function zipStoredFiles(files) {
+      const encoder = new TextEncoder();
+      const localParts = [];
+      const centralParts = [];
+      let localOffset = 0;
+      const crc32 = bytes => {
+        let crc = 0xffffffff;
+        for (const byte of bytes) {
+          crc ^= byte;
+          for (let bit = 0; bit < 8; bit += 1) {
+            crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+          }
+        }
+        return (crc ^ 0xffffffff) >>> 0;
+      };
+      const writeHeader = (length, fields) => {
+        const bytes = new Uint8Array(length);
+        const view = new DataView(bytes.buffer);
+        for (const [offset, value, size] of fields) {
+          if (size === 2) view.setUint16(offset, value, true);
+          else view.setUint32(offset, value, true);
+        }
+        return bytes;
+      };
+
+      for (const [name, content] of files) {
+        const nameBytes = encoder.encode(name);
+        const contentBytes = encoder.encode(content);
+        const checksum = crc32(contentBytes);
+        const localHeader = writeHeader(30, [
+          [0, 0x04034b50, 4], [4, 20, 2], [6, 0, 2], [8, 0, 2],
+          [10, 0, 2], [12, 0x21, 2], [14, checksum, 4],
+          [18, contentBytes.length, 4], [22, contentBytes.length, 4],
+          [26, nameBytes.length, 2], [28, 0, 2]
+        ]);
+        localParts.push(localHeader, nameBytes, contentBytes);
+
+        const centralHeader = writeHeader(46, [
+          [0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0, 2],
+          [10, 0, 2], [12, 0, 2], [14, 0x21, 2], [16, checksum, 4],
+          [20, contentBytes.length, 4], [24, contentBytes.length, 4],
+          [28, nameBytes.length, 2], [30, 0, 2], [32, 0, 2],
+          [34, 0, 2], [36, 0, 4], [42, localOffset, 4]
+        ]);
+        centralParts.push(centralHeader, nameBytes);
+        localOffset += localHeader.length + nameBytes.length + contentBytes.length;
+      }
+
+      const centralDirectory = localOffset;
+      const centralSize = new Blob(centralParts).size;
+      const endRecord = writeHeader(22, [
+        [0, 0x06054b50, 4], [4, 0, 2], [6, 0, 2],
+        [8, files.length, 2], [10, files.length, 2],
+        [12, centralSize, 4], [16, centralDirectory, 4], [20, 0, 2]
+      ]);
+      return new Blob([...localParts, ...centralParts, endRecord], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      });
+    }
+
+    function createSummaryWorkbook(summary) {
+      const previousCategoryNames = {
+        "20_49": "20–49 anställda",
+        "100_199": "100–199 anställda"
+      };
+      const rows = [
+        ["Bolag", "Föregående kategori", "Nuvarande kategori"],
+        ...summary.entries.map(entry => [
+          entry.company_name,
+          previousCategoryNames[entry.previous_category] || entry.previous_category,
+          `${entry.employee_count_at_publication ?? "50–99"} anställda`
+        ])
+      ];
+      const sheetRows = rows.map((row, rowIndex) => {
+        const cells = row.map((value, columnIndex) => {
+          const reference = `${String.fromCharCode(65 + columnIndex)}${rowIndex + 1}`;
+          return `<c r="${reference}" t="inlineStr"><is><t>${xmlEscape(value)}</t></is></c>`;
+        }).join("");
+        return `<row r="${rowIndex + 1}">${cells}</row>`;
+      }).join("");
+      const sheet = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${sheetRows}</sheetData></worksheet>`;
+      const workbook = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Månadslista" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+      const files = [
+        ["[Content_Types].xml", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>`],
+        ["_rels/.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+        ["xl/workbook.xml", workbook],
+        ["xl/_rels/workbook.xml.rels", `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`],
+        ["xl/worksheets/sheet1.xml", sheet]
+      ];
+      return zipStoredFiles(files);
+    }
+
+    function downloadSummaryWorkbook() {
+      if (!displayedSummary) return;
+      const blob = createSummaryWorkbook(displayedSummary);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `manadslista-${displayedSummary.month_start.slice(0, 7)}.xlsx`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
     function isExpired(contract) {
@@ -476,6 +597,9 @@
       const meta = document.querySelector("#summary-meta");
       const content = document.querySelector("#summary-content");
       const showLatestButton = document.querySelector("#show-latest-button");
+      const exportButton = document.querySelector("#export-summary-button");
+      displayedSummary = summary;
+      exportButton.hidden = !summary;
       heading.textContent = summary
         ? `Månadslista · ${formatMonth(summary.month_start)}`
         : "Aktuell månadslista";
@@ -724,6 +848,7 @@
     });
 
     document.querySelector("#show-latest-button").addEventListener("click", () => renderSummary(latestSummary));
+    document.querySelector("#export-summary-button").addEventListener("click", downloadSummaryWorkbook);
     document.querySelector("#history-list").addEventListener("click", async event => {
       const button = event.target.closest("button[data-month]");
       if (!button) return;
