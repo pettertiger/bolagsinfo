@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#17483d">
+  <meta name="theme-color" content="#ffffff">
   <title>Kundkarta | Lantero</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -44,22 +44,16 @@
 
     /* ── Topbar ── */
     .shell { min-height: 100vh; }
-    .topbar { background: var(--forest); color: white; }
+    .topbar { background: white; color: var(--ink); border-bottom: 1px solid var(--line); }
     .topbar-inner {
       max-width: 1380px; min-height: 72px; margin: auto;
       padding: 0 36px; display: flex; align-items: center;
       justify-content: space-between; gap: 24px;
     }
-    .brand { display: flex; align-items: center; gap: 13px; color: white; text-decoration: none; }
-    .brand-mark {
-      width: 34px; height: 34px; display: grid; place-items: center;
-      border: 1px solid rgba(255,255,255,.45); border-radius: 50% 50% 50% 10%;
-      color: var(--leaf); font-family: "Manrope", sans-serif;
-      font-size: 18px; font-weight: 800; transform: rotate(-8deg);
-    }
-    .brand-name { font-family: "Manrope", sans-serif; font-size: 20px; font-weight: 800; }
-    .brand-divider { height: 24px; width: 1px; background: rgba(255,255,255,.28); }
-    .product-name { font-size: 13px; color: rgba(255,255,255,.8); }
+    .brand { display: flex; align-items: center; gap: 13px; color: var(--ink); text-decoration: none; }
+    .brand-logo { display: block; width: auto; height: 52px; }
+    .brand-divider { height: 24px; width: 1px; background: var(--line); }
+    .product-name { font-size: 13px; color: var(--muted); }
 
     /* ── Main layout ── */
     main { max-width: 1380px; margin: auto; padding: 30px 36px 76px; }
@@ -283,6 +277,7 @@
     }
     @media (max-width: 760px) {
       .topbar-inner { min-height: 64px; padding: 0 20px; }
+      .brand-logo { height: 48px; }
       .brand-divider, .product-name { display: none; }
       main { padding: 24px 20px 56px; }
       .footer { padding: 18px 20px 25px; }
@@ -303,8 +298,7 @@
     <header class="topbar">
       <div class="topbar-inner">
         <a class="brand" href="/" aria-label="Lantero, startsida">
-          <span class="brand-mark" aria-hidden="true">L</span>
-          <span class="brand-name">lantero</span>
+          <img class="brand-logo" src="/lantero-logo.png" alt="">
           <span class="brand-divider" aria-hidden="true"></span>
           <span class="product-name">Kundkarta</span>
         </a>
