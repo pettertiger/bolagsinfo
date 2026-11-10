@@ -10,6 +10,12 @@ UPDATE app_user
 SET role = 'admin'
 WHERE email = 'petter.tiger@lantero.se';
 
+INSERT INTO municipality_product (id, name, color, sort_order)
+VALUES
+    ('visselblasarkanal', 'Visselblåsarkanal', '#17483d', 1),
+    ('redact', 'Redact', '#2563eb', 2)
+ON CONFLICT (id) DO NOTHING;
+
 WITH seed(company_name, due_date, note) AS (
     VALUES
         ('Österåkers kommun', '2030-01-31', NULL),

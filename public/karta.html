@@ -21,10 +21,6 @@
       --line: #dce2dc;
       --soft-green: #eaf0e8;
       --shadow: 0 12px 32px rgba(24, 54, 44, .08);
-      /* Map product colours */
-      --color-visselblasning: #17483d;
-      --color-redact: #2563eb;
-      --color-bada: #7c3aed;
       --color-none: #e5e7e3;
       font-family: "DM Sans", "Avenir Next", sans-serif;
       color: var(--ink);
@@ -54,6 +50,12 @@
     .brand-logo { display: block; width: auto; height: 52px; }
     .brand-divider { height: 24px; width: 1px; background: var(--line); }
     .product-name { font-size: 13px; color: var(--muted); }
+    .user-area { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; }
+    .header-button {
+      min-height: 34px; padding: 0 11px; border: 1px solid var(--line);
+      border-radius: 3px; background: white; color: var(--forest); font-size: 12px; font-weight: 600;
+    }
+    .header-button:hover { background: var(--soft-green); }
 
     /* ── Main layout ── */
     main { max-width: 1380px; margin: auto; padding: 30px 36px 76px; }
@@ -181,70 +183,53 @@
     }
     .customer-list-header h3 { margin: 0; font-size: 15px; font-weight: 700; }
 
-    .product-group { padding: 0 18px 16px; }
-    .product-group-heading {
-      display: flex; align-items: center; gap: 8px;
-      padding: 14px 0 9px; font-size: 11px; font-weight: 700;
-      letter-spacing: .07em; text-transform: uppercase; color: var(--muted);
-      border-bottom: 1px solid var(--line); margin-bottom: 8px;
+    .municipality-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line);
     }
-    .product-group-dot { width: 8px; height: 8px; border-radius: 50%; }
-    .customer-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    .customer-chip {
-      padding: 4px 9px; border-radius: 2px; font-size: 11px; font-weight: 600;
-      background: var(--soft-green); color: var(--forest);
+    .municipality-search, .municipality-filter {
+      min-height: 38px; padding: 0 10px; border: 1px solid var(--line);
+      border-radius: 3px; background: white; color: var(--ink); font: inherit; font-size: 13px;
     }
-    .customer-chip.redact { background: #dbeafe; color: #1d4ed8; }
-    .customer-chip.bada { background: #ede9fe; color: #6d28d9; }
-
-    /* ── Admin / CSV import ── */
-    .csv-section { margin-top: 28px; }
-    .csv-toggle-btn {
-      background: none; border: 1px solid var(--line); border-radius: 3px;
-      padding: 7px 12px; font-size: 12px; font-weight: 600; color: var(--muted);
-    }
-    .csv-toggle-btn:hover { border-color: #9caf9f; color: var(--ink); background: #f7f9f6; }
-
-    .csv-panel {
-      margin-top: 12px;
-      background: var(--paper);
-      border: 1px solid var(--line);
-      box-shadow: var(--shadow);
-      border-radius: 2px;
-      padding: 20px;
-    }
-    .csv-panel h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
-    .csv-desc { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
-    .csv-desc code {
-      font-family: "DM Mono", "Fira Code", monospace;
-      background: #f0f2ef; padding: 1px 4px; border-radius: 2px; font-size: 11px;
-    }
-    .csv-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-    .file-label {
-      display: inline-flex; align-items: center; gap: 7px;
-      padding: 8px 13px; border: 1px solid var(--line); border-radius: 3px;
-      background: #f7f9f6; font-size: 12px; font-weight: 600; cursor: pointer;
-    }
-    .file-label:hover { border-color: #9caf9f; background: #eef1ec; }
-    .file-input { display: none; }
-    .csv-status { font-size: 12px; color: var(--muted); }
-    .csv-status.ok { color: #276946; }
-    .csv-status.err { color: #a34f4d; }
-
-    .csv-table-wrap { margin-top: 18px; overflow-x: auto; }
-    table.csv-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    table.csv-table th {
-      height: 38px; padding: 0 13px; background: #fbfcfa;
-      border-bottom: 1px solid var(--line); color: #6b7771;
+    .municipality-search { width: min(100%, 360px); }
+    .municipality-filter { min-width: 175px; }
+    .municipality-table-wrap { overflow-x: auto; }
+    .municipality-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .municipality-table th {
+      height: 40px; padding: 0 14px; background: #fbfcfa;
+      border-bottom: 1px solid var(--line); color: var(--muted);
       font-size: 10px; font-weight: 700; letter-spacing: .04em;
-      text-transform: uppercase; white-space: nowrap; text-align: left;
+      text-transform: uppercase; text-align: left; white-space: nowrap;
     }
-    table.csv-table td {
-      padding: 9px 13px; border-bottom: 1px solid #edf0ec;
-      color: var(--ink); vertical-align: middle;
+    .municipality-table td { padding: 10px 14px; border-bottom: 1px solid #edf0ec; vertical-align: middle; }
+    .municipality-table tbody tr:last-child td { border-bottom: 0; }
+    .municipality-table tbody tr:hover { background: #fafcf9; }
+    .municipality-products { display: flex; flex-wrap: wrap; gap: 10px 18px; }
+    .municipality-product-option { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+    .municipality-product-option input { accent-color: var(--forest); }
+    .product-badge {
+      display: inline-flex; align-items: center; gap: 6px; margin: 2px 5px 2px 0;
+      padding: 4px 8px; border-radius: 2px; font-size: 11px; font-weight: 700;
     }
-    table.csv-table tbody tr:last-child td { border-bottom: 0; }
-    table.csv-table tbody tr:hover { background: #fafcf9; }
+    .product-swatch { width: 8px; height: 8px; border-radius: 50%; }
+    .row-save {
+      min-height: 32px; padding: 0 10px; border: 1px solid var(--forest);
+      border-radius: 3px; background: var(--forest); color: white; font-size: 12px; font-weight: 600;
+    }
+    .row-save:disabled { border-color: var(--line); background: #f4f5f0; color: var(--muted); cursor: default; }
+    .row-status { display: block; min-height: 14px; margin-top: 4px; color: var(--muted); font-size: 10px; }
+    .row-status.error { color: #a34f4d; }
+    .empty-row { padding: 20px !important; color: var(--muted); text-align: center; }
+    .login-dialog {
+      width: min(440px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--line);
+      border-radius: 3px; box-shadow: 0 20px 60px rgba(24,54,44,.22);
+    }
+    .login-dialog::backdrop { background: rgba(18, 35, 29, .45); }
+    .login-form { display: grid; gap: 14px; padding: 22px; }
+    .login-form h2 { margin: 0; font-size: 20px; }
+    .login-form label { display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 600; }
+    .login-form input { min-height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 3px; }
+    .login-error { margin: 0; color: #a34f4d; font-size: 12px; }
 
     /* ── Zoom controls ── */
     .zoom-controls {
@@ -274,17 +259,21 @@
       .map-layout { grid-template-columns: 1fr; }
       .side-panel { flex-direction: row; flex-wrap: wrap; }
       .stat-card { flex: 1; min-width: 200px; }
+      .municipality-table { min-width: 700px; }
     }
     @media (max-width: 760px) {
       .topbar-inner { min-height: 64px; padding: 0 20px; }
       .brand-logo { height: 48px; }
       .brand-divider, .product-name { display: none; }
+      .user-area { gap: 6px; }
+      #account-label { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       main { padding: 24px 20px 56px; }
       .footer { padding: 18px 20px 25px; }
     }
     @media (max-width: 480px) {
       .topbar-inner { gap: 8px; padding: 0 16px; }
-      .brand-name { font-size: 18px; }
+      .municipality-toolbar { align-items: stretch; flex-direction: column; }
+      .municipality-search, .municipality-filter { width: 100%; }
       main { padding-right: 15px; padding-left: 15px; }
       .footer { flex-direction: column; padding-right: 15px; padding-left: 15px; }
     }
@@ -302,6 +291,11 @@
           <span class="brand-divider" aria-hidden="true"></span>
           <span class="product-name">Kundkarta</span>
         </a>
+        <div class="user-area">
+          <span id="account-label">Kontrollerar session …</span>
+          <button class="header-button" id="login-button" type="button">Logga in</button>
+          <button class="header-button" id="logout-button" type="button" hidden>Logga ut</button>
+        </div>
       </div>
     </header>
 
@@ -315,7 +309,7 @@
       <header class="page-head">
         <p class="eyebrow">Geografisk översikt</p>
         <h1>Kundkarta</h1>
-        <p class="page-subtitle">Sveriges 290 kommuner – markerade efter vilka Lantero-produkter de använder.</p>
+        <p class="page-subtitle">Alla Sveriges 290 kommuner – med produktstatus som uppdateras av administratörer och visas på kartan.</p>
       </header>
 
       <nav class="tabs" aria-label="Sidor">
@@ -346,52 +340,14 @@
           <!-- Legend -->
           <div class="stat-card">
             <h3>Förklaring</h3>
-            <ul class="legend-list" aria-label="Färgförklaring">
-              <li class="legend-item">
-                <span class="legend-swatch" style="background:var(--color-visselblasning)"></span>
-                Visselblåsning
-              </li>
-              <li class="legend-item">
-                <span class="legend-swatch" style="background:var(--color-redact)"></span>
-                Redact
-              </li>
-              <li class="legend-item">
-                <span class="legend-swatch" style="background:var(--color-bada)"></span>
-                Båda produkterna
-              </li>
-              <li class="legend-item">
-                <span class="legend-swatch" style="background:var(--color-none); border: 1px solid var(--line)"></span>
-                Ingen kund
-              </li>
-            </ul>
+            <ul class="legend-list" id="legend-list" aria-label="Färgförklaring"></ul>
           </div>
 
-          <!-- Stats -->
           <div class="stat-card">
             <h3>Statistik</h3>
+            <div class="stat-rows" id="product-stats"></div>
+            <div class="stat-divider"></div>
             <div class="stat-rows">
-              <div class="stat-row">
-                <span class="stat-label">
-                  <span class="stat-dot" style="background:var(--color-visselblasning)"></span>
-                  Visselblåsning
-                </span>
-                <span class="stat-value" id="stat-visselblasning">–</span>
-              </div>
-              <div class="stat-row">
-                <span class="stat-label">
-                  <span class="stat-dot" style="background:var(--color-redact)"></span>
-                  Redact
-                </span>
-                <span class="stat-value" id="stat-redact">–</span>
-              </div>
-              <div class="stat-row">
-                <span class="stat-label">
-                  <span class="stat-dot" style="background:var(--color-bada)"></span>
-                  Båda
-                </span>
-                <span class="stat-value" id="stat-bada">–</span>
-              </div>
-              <div class="stat-divider"></div>
               <div class="stat-total">
                 <span>Totalt kunder</span>
                 <span id="stat-total">–</span>
@@ -408,543 +364,53 @@
       <!-- Customer list -->
       <section class="customer-list-section" aria-labelledby="customer-list-heading">
         <div class="customer-list-header">
-          <h3 id="customer-list-heading">Alla kunder</h3>
-          <span style="font-size:12px;color:var(--muted)" id="customer-list-meta"></span>
+          <h3 id="customer-list-heading">Sveriges kommuner</h3>
+          <span style="font-size:12px;color:var(--muted)" id="customer-list-meta">Logga in för att visa listan.</span>
         </div>
-        <div id="customer-list-body">
-          <div style="padding:20px;color:var(--muted);font-size:13px;">Laddar…</div>
+        <div class="municipality-toolbar">
+          <label class="visually-hidden" for="municipality-search">Sök kommun</label>
+          <input class="municipality-search" id="municipality-search" type="search" placeholder="Sök kommun" autocomplete="off">
+          <label class="visually-hidden" for="municipality-filter">Filtrera kommuner</label>
+          <select class="municipality-filter" id="municipality-filter">
+            <option value="all">Alla kommuner</option>
+            <option value="customers">Endast kunder</option>
+            <option value="noncustomers">Ej kunder</option>
+          </select>
+        </div>
+        <div class="municipality-table-wrap">
+          <table class="municipality-table">
+            <thead>
+              <tr><th scope="col">Kommun</th><th scope="col">Produktområden</th><th scope="col">Åtgärd</th></tr>
+            </thead>
+            <tbody id="municipality-rows">
+              <tr><td class="empty-row" colspan="3">Logga in för att visa kommunlistan.</td></tr>
+            </tbody>
+          </table>
         </div>
       </section>
-
-      <!-- CSV import (admin area) -->
-      <div class="csv-section">
-        <button class="csv-toggle-btn" id="csv-toggle" type="button" aria-expanded="false" aria-controls="csv-panel">
-          ↑ Importera CSV
-        </button>
-        <div class="csv-panel" id="csv-panel" hidden>
-          <h3>Importera kunddata från CSV</h3>
-          <p class="csv-desc">
-            Förväntat format (en kund per rad, rubrikrad krävs):<br>
-            <code>kommunnamn,produkt,avtalsstart,avtalsslut</code><br>
-            Produkt-värden: <code>visselblasning</code>, <code>redact</code>, <code>bada</code>
-          </p>
-          <div class="csv-row">
-            <label class="file-label" for="csv-file">
-              📂 Välj CSV-fil
-              <input class="file-input" type="file" id="csv-file" accept=".csv">
-            </label>
-            <span class="csv-status" id="csv-status"></span>
-          </div>
-          <div class="csv-table-wrap" id="csv-table-wrap" hidden></div>
-        </div>
-      </div>
     </main>
 
     <footer class="footer">
       <span>Lantero · Kundkarta</span>
-      <span>GeoJSON: <a href="https://github.com/okfse/sweden-geojson" target="_blank" rel="noreferrer" style="color:inherit;text-underline-offset:3px">okfse/sweden-geojson</a></span>
+      <span>Gränsdata: <a href="https://github.com/okfse/sweden-geojson" target="_blank" rel="noreferrer" style="color:inherit;text-underline-offset:3px">Sweden GeoJSON</a></span>
     </footer>
   </div>
 
   <!-- Tooltip -->
   <div id="tooltip" role="tooltip" aria-live="polite"></div>
 
+  <dialog class="login-dialog" id="login-dialog" aria-labelledby="login-title">
+    <form class="login-form" id="login-form">
+      <h2 id="login-title">Logga in</h2>
+      <label for="login-email">E-post<input id="login-email" name="email" type="email" required autocomplete="username" inputmode="email"></label>
+      <label for="login-code">Personlig åtkomstkod<input id="login-code" name="code" type="password" required autocomplete="current-password"></label>
+      <p class="login-error" id="login-error" role="alert" hidden></p>
+      <button class="header-button" id="login-submit" type="submit">Logga in</button>
+    </form>
+  </dialog>
+
   <!-- D3 v7 -->
   <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-  <script>
-    // ─────────────────────────────────────────────
-    // Hårdkodad kundlista (fallback / initialt)
-    // ─────────────────────────────────────────────
-    const BUILT_IN_CUSTOMERS = [
-      { name: "Österåker",     products: ["visselblasning"] },
-      { name: "Södertälje",    products: ["visselblasning"] },
-      { name: "Nybro",         products: ["visselblasning"] },
-      { name: "Uddevalla",     products: ["visselblasning"] },
-      { name: "Luleå",         products: ["visselblasning"] },
-      { name: "Järfälla",      products: ["visselblasning"] },
-      { name: "Tyresö",        products: ["visselblasning"] },
-      { name: "Arvidsjaur",    products: ["visselblasning"] },
-      { name: "Enköping",      products: ["visselblasning"] },
-      { name: "Gällivare",     products: ["visselblasning"] },
-      { name: "Ludvika",       products: ["visselblasning"] },
-      { name: "Pajala",        products: ["visselblasning"] },
-      { name: "Kävlinge",      products: ["visselblasning"] },
-      { name: "Arvika",        products: ["visselblasning"] },
-      { name: "Kalmar",        products: ["visselblasning"] },
-      { name: "Botkyrka",      products: ["visselblasning"] },
-      { name: "Falkenberg",    products: ["visselblasning"] },
-      { name: "Håbo",          products: ["visselblasning"] },
-      { name: "Knivsta",       products: ["visselblasning"] },
-      { name: "Mörbylånga",    products: ["visselblasning"] },
-      { name: "Sunne",         products: ["visselblasning"] },
-      { name: "Tierp",         products: ["visselblasning"] },
-      { name: "Älvkarleby",    products: ["visselblasning"] },
-      { name: "Östhammar",     products: ["visselblasning"] },
-      { name: "Tomelilla",     products: ["visselblasning"] },
-      { name: "Sigtuna",       products: ["visselblasning"] },
-      { name: "Huddinge",      products: ["visselblasning"] },
-      { name: "Piteå",         products: ["visselblasning"] },
-      { name: "Borgholm",      products: ["visselblasning"] },
-      { name: "Eda",           products: ["visselblasning"] },
-      { name: "Forshaga",      products: ["visselblasning"] },
-      { name: "Grums",         products: ["visselblasning"] },
-      { name: "Hagfors",       products: ["visselblasning"] },
-      { name: "Hammarö",       products: ["visselblasning"] },
-      { name: "Heby",          products: ["visselblasning"] },
-      { name: "Hedemora",      products: ["visselblasning"] },
-      { name: "Götene",        products: ["visselblasning"] },
-      { name: "Lidköping",     products: ["visselblasning"] },
-      { name: "Skara",         products: ["visselblasning"] },
-      { name: "Kalix",         products: ["visselblasning"] },
-      { name: "Kil",           products: ["visselblasning"] },
-      { name: "Kristinehamn",  products: ["visselblasning"] },
-      { name: "Stenungsund",   products: ["visselblasning"] },
-      { name: "Säffle",        products: ["visselblasning"] },
-      { name: "Torsby",        products: ["visselblasning"] },
-      { name: "Årjäng",        products: ["visselblasning"] },
-      { name: "Överkalix",     products: ["visselblasning"] },
-      { name: "Högsby",        products: ["visselblasning"] },
-      { name: "Köping",        products: ["visselblasning"] },
-      { name: "Täby",          products: ["visselblasning"] },
-      { name: "Avesta",        products: ["visselblasning"] },
-      { name: "Falun",         products: ["visselblasning"] },
-      { name: "Tranemo",       products: ["visselblasning"] },
-      { name: "Stockholm",     products: ["visselblasning"] },
-      { name: "Lund",          products: ["visselblasning"] },
-      { name: "Oskarshamn",    products: ["visselblasning"] },
-      // Redact
-      { name: "Norberg",       products: ["redact"] },
-    ];
-
-    // ─────────────────────────────────────────────
-    // State
-    // ─────────────────────────────────────────────
-    let customers = BUILT_IN_CUSTOMERS.map(c => ({ ...c }));
-    let csvRows   = [];   // rows from CSV upload (replaces built-in)
-
-    // ─────────────────────────────────────────────
-    // Normalise helpers
-    // ─────────────────────────────────────────────
-    function norm(str) {
-      return String(str)
-        .toLowerCase()
-        .replace(/\s+kommun\s*$/i, "")  // strip " Kommun" suffix
-        .replace(/\s*\(.*?\)\s*/g, "")  // strip parenthetical info
-        .replace(/\u00e5/g, "a")        // å → a  (for fuzzy matching only)
-        .replace(/\u00e4/g, "a")        // ä → a
-        .replace(/\u00f6/g, "o")        // ö → o
-        .trim();
-    }
-
-    // Build lookup: normalised name → customer record
-    function buildLookup(list) {
-      const map = new Map();
-      list.forEach(c => {
-        const key = norm(c.name);
-        const existing = map.get(key);
-        if (existing) {
-          // Merge products
-          const merged = Array.from(new Set([...existing.products, ...c.products]));
-          existing.products = merged;
-        } else {
-          map.set(key, { ...c, products: [...c.products] });
-        }
-      });
-      return map;
-    }
-
-    // Match GeoJSON name to customer: returns customer or null
-    function findCustomer(geoName, lookup) {
-      const key = norm(geoName);
-      // 1. Exact normalised match
-      if (lookup.has(key)) return lookup.get(key);
-      // 2. GeoJSON name contains customer name, or vice-versa
-      for (const [cKey, cVal] of lookup) {
-        if (key.includes(cKey) || cKey.includes(key)) return cVal;
-      }
-      return null;
-    }
-
-    // Compute colour for a customer record
-    function productColor(customer) {
-      if (!customer) return "var(--color-none)";
-      const p = customer.products;
-      const hasV = p.includes("visselblasning");
-      const hasR = p.includes("redact");
-      if (p.includes("bada") || (hasV && hasR)) return "var(--color-bada)";
-      if (hasV) return "var(--color-visselblasning)";
-      if (hasR) return "var(--color-redact)";
-      return "var(--color-none)";
-    }
-
-    // ─────────────────────────────────────────────
-    // D3 Map
-    // ─────────────────────────────────────────────
-    const GEOJSON_URL =
-      "https://raw.githubusercontent.com/okfse/sweden-geojson/master/swedish_municipalities.geojson";
-
-    const container = document.getElementById("map-svg-container");
-    const statusEl  = document.getElementById("map-status");
-    const tooltip   = document.getElementById("tooltip");
-
-    let svgEl, pathGroup, zoomBehavior;
-    let geoData = null;
-
-    async function initMap() {
-      try {
-        geoData = await d3.json(GEOJSON_URL);
-        statusEl.textContent = `${geoData.features.length} kommuner`;
-        drawMap(geoData);
-        renderSidebar();
-        renderCustomerList();
-      } catch (err) {
-        statusEl.textContent = "Kunde inte ladda GeoJSON";
-        console.error(err);
-      }
-    }
-
-    function drawMap(data) {
-      // Remove any previous SVG
-      d3.select(container).select("svg").remove();
-
-      const rect = container.getBoundingClientRect();
-      const W = rect.width  || 640;
-      const H = Math.max(rect.height || 580, 500);
-
-      const projection = d3.geoMercator().fitSize([W, H], data);
-      const path = d3.geoPath().projection(projection);
-
-      const svg = d3.select(container)
-        .insert("svg", ".zoom-controls")   // insert before zoom controls
-        .attr("width", "100%")
-        .attr("height", H)
-        .attr("viewBox", `0 0 ${W} ${H}`)
-        .attr("aria-label", "Sverigekarta med kommuner");
-
-      svgEl = svg;
-
-      const g = svg.append("g").attr("class", "map-g");
-      pathGroup = g;
-
-      const lookup = buildLookup(customers);
-
-      g.selectAll("path")
-        .data(data.features)
-        .join("path")
-          .attr("d", path)
-          .attr("fill", d => productColor(findCustomer(d.properties.name, lookup)))
-          .attr("stroke", "#fff")
-          .attr("stroke-width", 0.5)
-          .attr("class", "municipality")
-          .style("cursor", "default")
-          .on("mousemove", onMouseMove)
-          .on("mouseleave", onMouseLeave);
-
-      // Zoom
-      zoomBehavior = d3.zoom()
-        .scaleExtent([0.5, 12])
-        .on("zoom", event => g.attr("transform", event.transform));
-
-      svg.call(zoomBehavior);
-
-      // Zoom button wiring
-      document.getElementById("zoom-in").onclick  = () => svg.transition().call(zoomBehavior.scaleBy, 1.5);
-      document.getElementById("zoom-out").onclick = () => svg.transition().call(zoomBehavior.scaleBy, 0.67);
-      document.getElementById("zoom-reset").onclick = () => svg.transition().call(zoomBehavior.transform, d3.zoomIdentity);
-    }
-
-    function redrawColors() {
-      if (!geoData || !pathGroup) return;
-      const lookup = buildLookup(customers);
-      pathGroup.selectAll("path.municipality")
-        .attr("fill", d => productColor(findCustomer(d.properties.name, lookup)));
-    }
-
-    function onMouseMove(event, d) {
-      const name = d.properties.name;
-      const lookup = buildLookup(customers);
-      const customer = findCustomer(name, lookup);
-
-      let html = `<strong>${escHtml(name)}</strong>`;
-      if (customer) {
-        const csvMatch = csvRows.find(r => norm(r.kommunnamn) === norm(name) ||
-          norm(name).includes(norm(r.kommunnamn)) || norm(r.kommunnamn).includes(norm(name)));
-        customer.products.forEach(p => {
-          const label = p === "visselblasning" ? "Visselblåsning"
-                      : p === "redact"         ? "Redact"
-                      : "Båda";
-          const color = p === "visselblasning" ? "var(--color-visselblasning)"
-                      : p === "redact"         ? "var(--color-redact)"
-                      : "var(--color-bada)";
-          html += `<span class="tt-badge" style="background:${color}20;color:${color}">
-            <span class="tt-badge-dot" style="background:${color}"></span>${escHtml(label)}</span>`;
-        });
-        if (csvMatch) {
-          if (csvMatch.avtalsstart) html += `<br><span style="font-size:11px;color:var(--muted)">Start: ${escHtml(csvMatch.avtalsstart)}</span>`;
-          if (csvMatch.avtalsslut)  html += `<br><span style="font-size:11px;color:var(--muted)">Slut: ${escHtml(csvMatch.avtalsslut)}</span>`;
-        }
-      } else {
-        html += `<span style="font-size:12px;color:var(--muted)">Ingen kund</span>`;
-      }
-
-      tooltip.innerHTML = html;
-      tooltip.classList.add("visible");
-      positionTooltip(event);
-    }
-
-    function onMouseLeave() {
-      tooltip.classList.remove("visible");
-    }
-
-    function positionTooltip(event) {
-      const tw = tooltip.offsetWidth  || 180;
-      const th = tooltip.offsetHeight || 80;
-      let x = event.clientX + 14;
-      let y = event.clientY + 14;
-      if (x + tw + 10 > window.innerWidth)  x = event.clientX - tw - 14;
-      if (y + th + 10 > window.innerHeight) y = event.clientY - th - 14;
-      tooltip.style.left = x + "px";
-      tooltip.style.top  = y + "px";
-    }
-
-    // ─────────────────────────────────────────────
-    // Sidebar stats
-    // ─────────────────────────────────────────────
-    function renderSidebar() {
-      const lookup = buildLookup(customers);
-      let v = 0, r = 0, b = 0;
-      if (geoData) {
-        geoData.features.forEach(f => {
-          const c = findCustomer(f.properties.name, lookup);
-          if (!c) return;
-          const hasV = c.products.includes("visselblasning");
-          const hasR = c.products.includes("redact");
-          if (c.products.includes("bada") || (hasV && hasR)) { b++; }
-          else if (hasV) { v++; }
-          else if (hasR) { r++; }
-        });
-      } else {
-        // Estimate from list
-        customers.forEach(c => {
-          const hasV = c.products.includes("visselblasning");
-          const hasR = c.products.includes("redact");
-          if (c.products.includes("bada") || (hasV && hasR)) b++;
-          else if (hasV) v++;
-          else if (hasR) r++;
-        });
-      }
-      document.getElementById("stat-visselblasning").textContent = v;
-      document.getElementById("stat-redact").textContent         = r;
-      document.getElementById("stat-bada").textContent           = b;
-      document.getElementById("stat-total").textContent          = v + r + b;
-    }
-
-    // ─────────────────────────────────────────────
-    // Customer list
-    // ─────────────────────────────────────────────
-    function renderCustomerList() {
-      const body = document.getElementById("customer-list-body");
-      const meta = document.getElementById("customer-list-meta");
-
-      // Group by product category
-      const groups = {
-        visselblasning: [],
-        redact: [],
-        bada: [],
-      };
-
-      const lookup = buildLookup(customers);
-      const seen = new Set();
-
-      // Walk through all features to get canonical GeoJSON names
-      if (geoData) {
-        geoData.features.forEach(f => {
-          const gName = f.properties.name;
-          const c = findCustomer(gName, lookup);
-          if (!c || seen.has(c.name)) return;
-          seen.add(c.name);
-          const hasV = c.products.includes("visselblasning");
-          const hasR = c.products.includes("redact");
-          const geoDisplayName = gName.replace(/\s+[Kk]ommun\s*$/, "");
-          if (c.products.includes("bada") || (hasV && hasR)) groups.bada.push(geoDisplayName);
-          else if (hasV) groups.visselblasning.push(geoDisplayName);
-          else if (hasR) groups.redact.push(geoDisplayName);
-        });
-      } else {
-        customers.forEach(c => {
-          const hasV = c.products.includes("visselblasning");
-          const hasR = c.products.includes("redact");
-          if (c.products.includes("bada") || (hasV && hasR)) groups.bada.push(c.name);
-          else if (hasV) groups.visselblasning.push(c.name);
-          else if (hasR) groups.redact.push(c.name);
-        });
-      }
-
-      Object.keys(groups).forEach(k => groups[k].sort((a, b) => a.localeCompare(b, "sv")));
-
-      const total = groups.visselblasning.length + groups.redact.length + groups.bada.length;
-      meta.textContent = `${total} kunder`;
-
-      const PRODUCT_LABELS = {
-        visselblasning: "Visselblåsning",
-        redact: "Redact",
-        bada: "Båda produkterna",
-      };
-      const CHIP_CLASSES = {
-        visselblasning: "",
-        redact: "redact",
-        bada: "bada",
-      };
-      const DOT_COLORS = {
-        visselblasning: "var(--color-visselblasning)",
-        redact: "var(--color-redact)",
-        bada: "var(--color-bada)",
-      };
-
-      let html = "";
-      for (const [key, names] of Object.entries(groups)) {
-        if (!names.length) continue;
-        html += `
-          <div class="product-group">
-            <div class="product-group-heading">
-              <span class="product-group-dot" style="background:${DOT_COLORS[key]}"></span>
-              ${escHtml(PRODUCT_LABELS[key])} (${names.length})
-            </div>
-            <div class="customer-chips">
-              ${names.map(n => `<span class="customer-chip ${CHIP_CLASSES[key]}">${escHtml(n)}</span>`).join("")}
-            </div>
-          </div>`;
-      }
-
-      if (!html) html = `<div style="padding:20px;color:var(--muted);font-size:13px;">Inga kunder matchade.</div>`;
-      body.innerHTML = html;
-    }
-
-    // ─────────────────────────────────────────────
-    // CSV import
-    // ─────────────────────────────────────────────
-    document.getElementById("csv-toggle").addEventListener("click", function () {
-      const panel = document.getElementById("csv-panel");
-      const expanded = this.getAttribute("aria-expanded") === "true";
-      this.setAttribute("aria-expanded", String(!expanded));
-      panel.hidden = expanded;
-    });
-
-    document.getElementById("csv-file").addEventListener("change", function () {
-      const file = this.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = e => parseCSV(e.target.result, file.name);
-      reader.readAsText(file, "utf-8");
-    });
-
-    function parseCSV(text, filename) {
-      const statusEl = document.getElementById("csv-status");
-      const wrapEl   = document.getElementById("csv-table-wrap");
-
-      try {
-        const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
-        const header = lines[0].toLowerCase().split(",").map(s => s.trim());
-        const nameIdx    = header.indexOf("kommunnamn");
-        const productIdx = header.indexOf("produkt");
-        const startIdx   = header.indexOf("avtalsstart");
-        const endIdx     = header.indexOf("avtalsslut");
-
-        if (nameIdx < 0 || productIdx < 0) {
-          statusEl.textContent = "Ogiltigt format – behöver kolumner: kommunnamn, produkt";
-          statusEl.className = "csv-status err";
-          wrapEl.hidden = true;
-          return;
-        }
-
-        const rows = [];
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
-          const cols = line.split(",").map(s => s.trim());
-          const kommunnamn  = cols[nameIdx]    || "";
-          const produkt     = cols[productIdx]  || "";
-          const avtalsstart = startIdx >= 0 ? (cols[startIdx] || "") : "";
-          const avtalsslut  = endIdx   >= 0 ? (cols[endIdx]   || "") : "";
-          if (!kommunnamn) continue;
-
-          // Validate product
-          const validProducts = ["visselblasning", "redact", "bada"];
-          const prod = produkt.toLowerCase().replace(/\s/g, "");
-          if (!validProducts.includes(prod)) continue;
-
-          rows.push({ kommunnamn, produkt: prod, avtalsstart, avtalsslut });
-        }
-
-        if (!rows.length) {
-          statusEl.textContent = "Inga giltiga rader hittades i filen.";
-          statusEl.className = "csv-status err";
-          wrapEl.hidden = true;
-          return;
-        }
-
-        // Build new customer list from CSV (replaces built-in)
-        csvRows = rows;
-        const csvCustomers = rows.map(r => ({
-          name: r.kommunnamn,
-          products: r.produkt === "bada" ? ["visselblasning", "redact"] : [r.produkt],
-        }));
-        customers = csvCustomers;
-
-        // Refresh UI
-        redrawColors();
-        renderSidebar();
-        renderCustomerList();
-
-        // Status
-        statusEl.textContent = `✓ ${rows.length} rader inlästa från ${filename}`;
-        statusEl.className = "csv-status ok";
-
-        // Table
-        wrapEl.hidden = false;
-        wrapEl.innerHTML = `
-          <table class="csv-table">
-            <thead>
-              <tr>
-                <th>Kommunnamn</th>
-                <th>Produkt</th>
-                <th>Avtalsstart</th>
-                <th>Avtalsslut</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map(r => `
-                <tr>
-                  <td>${escHtml(r.kommunnamn)}</td>
-                  <td>${escHtml(r.produkt)}</td>
-                  <td>${escHtml(r.avtalsstart) || "–"}</td>
-                  <td>${escHtml(r.avtalsslut)  || "–"}</td>
-                </tr>
-              `).join("")}
-            </tbody>
-          </table>`;
-
-      } catch (err) {
-        statusEl.textContent = "Fel vid inläsning: " + err.message;
-        statusEl.className = "csv-status err";
-        wrapEl.hidden = true;
-        console.error(err);
-      }
-    }
-
-    // ─────────────────────────────────────────────
-    // Helpers
-    // ─────────────────────────────────────────────
-    function escHtml(str) {
-      return String(str).replace(/[&<>"']/g, c =>
-        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
-      );
-    }
-
-    // ─────────────────────────────────────────────
-    // Boot
-    // ─────────────────────────────────────────────
-    initMap();
-  </script>
+  <script src="/karta.js" defer></script>
 </body>
 </html>

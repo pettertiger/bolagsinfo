@@ -168,3 +168,39 @@ CREATE TABLE access_code_change (
 
 CREATE INDEX access_code_change_user_idx
     ON access_code_change (user_id, changed_at DESC);
+
+CREATE TABLE municipality_product (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    color TEXT NOT NULL CHECK (
+        color GLOB '#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]'
+    ),
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1))
+);
+
+CREATE TABLE municipality_customer_product (
+    municipality_code TEXT NOT NULL CHECK (
+        municipality_code GLOB '[0-9][0-9][0-9][0-9]'
+    ),
+    product_id TEXT NOT NULL REFERENCES municipality_product(id) ON DELETE RESTRICT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    created_by INTEGER REFERENCES app_user(id) ON DELETE SET NULL,
+    PRIMARY KEY (municipality_code, product_id)
+);
+
+CREATE INDEX municipality_customer_product_product_idx
+    ON municipality_customer_product (product_id, municipality_code);
+
+CREATE TABLE municipality_customer_change (
+    id INTEGER PRIMARY KEY,
+    municipality_code TEXT NOT NULL CHECK (
+        municipality_code GLOB '[0-9][0-9][0-9][0-9]'
+    ),
+    actor_id INTEGER REFERENCES app_user(id) ON DELETE SET NULL,
+    product_ids_json TEXT NOT NULL CHECK (json_valid(product_ids_json)),
+    changed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX municipality_customer_change_code_idx
+    ON municipality_customer_change (municipality_code, changed_at DESC);
