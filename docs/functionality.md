@@ -8,6 +8,7 @@
 - Store dates as ISO `YYYY-MM-DD` text and timestamps as UTC ISO text. Keep SCB credentials in Cloudflare secrets, not in D1 or browser code.
 - Map SCB responses to the internal categories before storage. Retain original source payloads only if SCB's terms permit it.
 - The customer map uses the 290 municipality codes and names in `municipalities.js`. They match the `id` and `kom_namn` properties in the simplified [Sweden GeoJSON](https://github.com/okfse/sweden-geojson) municipality data; keep that attribution when displaying the map.
+- The map adapts polygon ring orientation to D3's spherical convention before fitting the projection. Without this, GeoJSON municipalities can be interpreted as covering nearly the entire globe.
 - Municipality customer assignments are stored by four-digit municipality code and product ID, not by display name. The product catalog is in D1 so additional products can be added without changing the map's coloring logic.
 
 ## Access and roles

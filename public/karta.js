@@ -167,6 +167,24 @@ function renderMunicipalityRows() {
   }).join("");
 }
 
+function orientMunicipalityGeometry(data) {
+  for (const feature of data.features) {
+    const geometry = feature.geometry;
+    if (geometry?.type !== "Polygon" && geometry?.type !== "MultiPolygon") {
+      throw new Error("Kartans gränsdata innehåller en kommun med ogiltig geometri.");
+    }
+    if (d3.geoArea(feature) <= 2 * Math.PI) continue;
+    const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
+    for (const polygon of polygons) {
+      for (const ring of polygon) ring.reverse();
+    }
+    if (d3.geoArea(feature) > 2 * Math.PI) {
+      throw new Error("Kartans kommungränser kunde inte anpassas för visning.");
+    }
+  }
+  return data;
+}
+
 function drawMap(data) {
   d3.select(mapContainer).select("svg").remove();
   const rect = mapContainer.getBoundingClientRect();
@@ -268,7 +286,7 @@ async function loadMapData() {
   products = customerData.products;
   municipalities = customerData.municipalities;
   municipalityByCode = new Map(municipalities.map(municipality => [municipality.code, municipality]));
-  geoData = geography;
+  geoData = orientMunicipalityGeometry(geography);
   renderLegend();
   renderMunicipalityRows();
   drawMap(geoData);
