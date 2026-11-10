@@ -173,7 +173,8 @@ CREATE TABLE municipality_product (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     color TEXT NOT NULL CHECK (
-        color GLOB '#[0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f][0-9A-Fa-f]'
+        length(color) = 7 AND substr(color, 1, 1) = '#'
+        AND substr(color, 2) NOT GLOB '*[^0-9A-Fa-f]*'
     ),
     sort_order INTEGER NOT NULL DEFAULT 0,
     is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1))
