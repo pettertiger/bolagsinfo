@@ -1,4 +1,5 @@
 import { MUNICIPALITIES } from "./municipalities.js";
+import { REGIONS } from "./regions.js";
 
 const SESSION_COOKIE = "bolagsinfo_session";
 const SESSION_DAYS = 7;
@@ -260,10 +261,14 @@ export default {
       });
     }
 
-    if (request.method === "GET" && url.pathname === "/api/municipality-customers") {
+    const regionListRequest = url.pathname === "/api/region-customers";
+    if (request.method === "GET" && (url.pathname === "/api/municipality-customers" || regionListRequest)) {
       const result = await requireSession(request, env);
       if (result.response) return result.response;
 
+      const customerTable = regionListRequest ? "region_customer_product" : "municipality_customer_product";
+      const codeColumn = regionListRequest ? "region_code" : "municipality_code";
+      const areas = regionListRequest ? REGIONS : MUNICIPALITIES;
       const [productRows, assignmentRows] = await Promise.all([
         env.D8.prepare(`
           SELECT id, name, color
@@ -272,38 +277,44 @@ export default {
           ORDER BY sort_order, name COLLATE NOCASE
         `).all(),
         env.D8.prepare(`
-          SELECT customer_product.municipality_code, customer_product.product_id
-          FROM municipality_customer_product customer_product
+          SELECT customer_product.${codeColumn} AS area_code, customer_product.product_id
+          FROM ${customerTable} customer_product
           JOIN municipality_product product ON product.id = customer_product.product_id
           WHERE product.is_active = 1
-          ORDER BY customer_product.municipality_code, customer_product.product_id
+          ORDER BY customer_product.${codeColumn}, customer_product.product_id
         `).all()
       ]);
-      const productsByMunicipality = new Map();
+      const productsByArea = new Map();
       for (const assignment of assignmentRows.results) {
-        const products = productsByMunicipality.get(assignment.municipality_code) || [];
+        const products = productsByArea.get(assignment.area_code) || [];
         products.push(assignment.product_id);
-        productsByMunicipality.set(assignment.municipality_code, products);
+        productsByArea.set(assignment.area_code, products);
       }
 
       return json({
         products: productRows.results,
-        municipalities: MUNICIPALITIES
-          .map(municipality => ({
-            ...municipality,
-            products: productsByMunicipality.get(municipality.code) || []
+        [regionListRequest ? "regions" : "municipalities"]: areas
+          .map(area => ({
+            ...area,
+            products: productsByArea.get(area.code) || []
           }))
           .sort((left, right) => left.name.localeCompare(right.name, "sv"))
       });
     }
 
     const municipalityProductsMatch = url.pathname.match(/^\/api\/admin\/municipalities\/(\d{4})\/products$/);
-    if (request.method === "PUT" && municipalityProductsMatch) {
+    const regionProductsMatch = url.pathname.match(/^\/api\/admin\/regions\/(\d{2})\/products$/);
+    if (request.method === "PUT" && (municipalityProductsMatch || regionProductsMatch)) {
       const result = await requireAdmin(request, env);
       if (result.response) return result.response;
-      const municipalityCode = municipalityProductsMatch[1];
-      if (!MUNICIPALITIES.some(municipality => municipality.code === municipalityCode)) {
-        return json({ error: "Kommunen hittades inte." }, 404);
+      const isRegion = Boolean(regionProductsMatch);
+      const areaCode = (regionProductsMatch || municipalityProductsMatch)[1];
+      const areas = isRegion ? REGIONS : MUNICIPALITIES;
+      const customerTable = isRegion ? "region_customer_product" : "municipality_customer_product";
+      const changeTable = isRegion ? "region_customer_change" : "municipality_customer_change";
+      const codeColumn = isRegion ? "region_code" : "municipality_code";
+      if (!areas.some(area => area.code === areaCode)) {
+        return json({ error: isRegion ? "Regionen hittades inte." : "Kommunen hittades inte." }, 404);
       }
 
       const body = await readJson(request);
@@ -324,10 +335,10 @@ export default {
 
       const normalizedProducts = [...requestedProducts].sort();
       const existingRows = await env.D8.prepare(`
-        SELECT product_id FROM municipality_customer_product
-        WHERE municipality_code = ?
+        SELECT product_id FROM ${customerTable}
+        WHERE ${codeColumn} = ?
         ORDER BY product_id
-      `).bind(municipalityCode).all();
+      `).bind(areaCode).all();
       const existingProducts = existingRows.results.map(row => row.product_id);
       if (JSON.stringify(normalizedProducts) === JSON.stringify(existingProducts)) {
         return json({ ok: true, changed: false });
@@ -335,16 +346,16 @@ export default {
 
       const statements = [
         env.D8.prepare(`
-          DELETE FROM municipality_customer_product WHERE municipality_code = ?
-        `).bind(municipalityCode),
+          DELETE FROM ${customerTable} WHERE ${codeColumn} = ?
+        `).bind(areaCode),
         ...normalizedProducts.map(productId => env.D8.prepare(`
-          INSERT INTO municipality_customer_product (municipality_code, product_id, created_by)
+          INSERT INTO ${customerTable} (${codeColumn}, product_id, created_by)
           VALUES (?, ?, ?)
-        `).bind(municipalityCode, productId, result.session.id)),
+        `).bind(areaCode, productId, result.session.id)),
         env.D8.prepare(`
-          INSERT INTO municipality_customer_change (municipality_code, actor_id, product_ids_json)
+          INSERT INTO ${changeTable} (${codeColumn}, actor_id, product_ids_json)
           VALUES (?, ?, ?)
-        `).bind(municipalityCode, result.session.id, JSON.stringify(normalizedProducts))
+        `).bind(areaCode, result.session.id, JSON.stringify(normalizedProducts))
       ];
       await env.D8.batch(statements);
       return json({ ok: true, changed: true });

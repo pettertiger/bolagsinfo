@@ -10,6 +10,7 @@
 - The customer map uses the 290 municipality codes and names in `municipalities.js`. They match the `id` and `kom_namn` properties in the simplified [Sweden GeoJSON](https://github.com/okfse/sweden-geojson) municipality data; keep that attribution when displaying the map.
 - The map adapts polygon ring orientation to D3's spherical convention before fitting the projection. Without this, GeoJSON municipalities can be interpreted as covering nearly the entire globe.
 - Municipality customer assignments are stored by four-digit municipality code and product ID, not by display name. The product catalog is in D1 so additional products can be added without changing the map's coloring logic.
+- `regions.js` contains the 21 regions, keyed by their two-digit county codes. Region Gotland is listed separately from Gotland municipality. Region assignments are independent of municipality assignments and do not affect the municipality map.
 
 ## Access and roles
 
@@ -21,6 +22,7 @@
 - Run `database/migrations/0002_auth_login_attempt.sql` in the existing D1 database before deploying this Worker version. Five failed attempts for the same email/IP combination cause a 15-minute lockout.
 - `viewer` may read contracts and published statistics. Only `admin` may create, edit, or remove contracts, manage access, and run or publish imports. Enforce this in the Worker on every request, not just by hiding UI controls.
 - Signed-in users can view the municipality customer list and map. Only `admin` can update a municipality's selected products. Each change records the administrator, municipality code, and resulting product IDs in `municipality_customer_change`.
+- Signed-in users can view the separate region list. Only `admin` can update its products; changes are recorded in `region_customer_change`. No region map is provided yet.
 - Log the authenticated user on every mutation. Use the contract `version` for optimistic concurrency and return HTTP 409 if another administrator changed the same row first.
 
 ## Contract behavior
@@ -60,11 +62,15 @@ Before using the admin baseline action, apply `database/migrations/0003_scb_impo
 - `POST /api/admin/scb/import` - admin-only server-side import/retry; never expose SCB credentials to the browser.
 - `GET /api/municipality-customers` - returns all 290 municipalities, the active product catalog, and each municipality's product assignments.
 - `PUT /api/admin/municipalities/{code}/products` with `{ "products": ["visselblasarkanal", "redact"] }` - admin-only replacement of one municipality's product selections.
+- `GET /api/region-customers` - returns all 21 regions and their product assignments.
+- `PUT /api/admin/regions/{code}/products` - admin-only replacement of one region's product selections.
 
 Apply `database/migrations/0005_access_code_change.sql` to the production D1 database before deploying a Worker version with self-service access-code changes.
 Apply `database/migrations/0006_municipality_customers.sql` to the production D1 database before deploying the municipality customer map. It creates the product catalog, assignments, and change history, and transfers the existing map's 57 hard-coded customer entries to municipality codes.
 
 The initial product catalog contains Visselblåsarkanal and Redact. To add another product, insert a row in `municipality_product` with a unique ID, display name, hex color, and sort order; active catalog items appear automatically in the admin form, map legend, statistics, and tooltips.
+
+After migration `0006`, apply `database/migrations/0007_region_customers_and_customer_import.sql` before deploying the region list. It adds 64 municipalities and four distinct regions from the supplied November 2026 customer list as Visselblåsarkanal customers, without deleting or replacing existing product assignments. The import marker prevents re-running the migration from restoring assignments subsequently removed by an administrator. The spreadsheet contains customer data and should not be committed to the repository.
 
 ## Production deployment and domain
 

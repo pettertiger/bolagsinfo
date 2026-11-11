@@ -388,6 +388,34 @@
           </table>
         </div>
       </section>
+
+      <section class="customer-list-section" aria-labelledby="region-list-heading">
+        <div class="customer-list-header">
+          <h3 id="region-list-heading">Sveriges regioner</h3>
+          <span style="font-size:12px;color:var(--muted)" id="region-list-meta">Logga in för att visa listan.</span>
+        </div>
+        <div class="municipality-toolbar">
+          <label class="visually-hidden" for="region-search">Sök region</label>
+          <input class="municipality-search" id="region-search" type="search" placeholder="Sök region" autocomplete="off">
+          <label class="visually-hidden" for="region-filter">Filtrera regioner</label>
+          <select class="municipality-filter" id="region-filter">
+            <option value="all">Alla regioner</option>
+            <option value="customers">Endast kunder</option>
+            <option value="noncustomers">Ej kunder</option>
+          </select>
+        </div>
+        <p style="padding: 14px 18px; margin: 0; color: var(--muted); font-size: 12px;">Regioner visas separat och påverkar inte kommunkartan.</p>
+        <div class="municipality-table-wrap">
+          <table class="municipality-table">
+            <thead>
+              <tr><th scope="col">Region</th><th scope="col">Produktområden</th><th scope="col">Åtgärd</th></tr>
+            </thead>
+            <tbody id="region-rows">
+              <tr><td class="empty-row" colspan="3">Logga in för att visa regionlistan.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </main>
 
     <footer class="footer">

@@ -5,6 +5,8 @@ const NO_CUSTOMER_COLOR = "#e5e7e3";
 let currentUser = null;
 let products = [];
 let municipalities = [];
+let regions = [];
+const pendingAreaProducts = { municipality: new Map(), region: new Map() };
 let municipalityByCode = new Map();
 let geoData = null;
 let mapPathGroup = null;
@@ -16,6 +18,7 @@ const tooltip = document.querySelector("#tooltip");
 const loginDialog = document.querySelector("#login-dialog");
 const loginForm = document.querySelector("#login-form");
 const municipalityRows = document.querySelector("#municipality-rows");
+const regionRows = document.querySelector("#region-rows");
 
 async function api(path, options = {}) {
   const headers = new Headers(options.headers || {});
@@ -119,35 +122,45 @@ function renderLegend() {
 }
 
 function renderMunicipalityRows() {
-  if (!municipalities.length) {
-    municipalityRows.innerHTML = '<tr><td class="empty-row" colspan="3">Logga in för att visa kommunlistan.</td></tr>';
+  renderAreaRows("municipality");
+}
+
+function renderAreaRows(type) {
+  const isRegion = type === "region";
+  const areas = isRegion ? regions : municipalities;
+  const rows = isRegion ? regionRows : municipalityRows;
+  const areaName = isRegion ? "regioner" : "kommuner";
+  if (!areas.length) {
+    rows.innerHTML = `<tr><td class="empty-row" colspan="3">Logga in för att visa ${isRegion ? "regionlistan" : "kommunlistan"}.</td></tr>`;
     return;
   }
-  const search = document.querySelector("#municipality-search").value.trim().toLocaleLowerCase("sv");
-  const filter = document.querySelector("#municipality-filter").value;
-  const filtered = municipalities.filter(municipality => {
+  const search = document.querySelector(`#${type}-search`).value.trim().toLocaleLowerCase("sv");
+  const filter = document.querySelector(`#${type}-filter`).value;
+  const filtered = areas.filter(municipality => {
     if (search && !municipality.name.toLocaleLowerCase("sv").includes(search)) return false;
     if (filter === "customers" && municipality.products.length === 0) return false;
     if (filter === "noncustomers" && municipality.products.length > 0) return false;
     return true;
   });
 
-  const customerCount = municipalities.filter(municipality => municipality.products.length > 0).length;
-  document.querySelector("#customer-list-meta").textContent =
-    `Visar ${filtered.length} av ${municipalities.length} kommuner · ${customerCount} kunder`;
+  const customerCount = areas.filter(area => area.products.length > 0).length;
+  document.querySelector(isRegion ? "#region-list-meta" : "#customer-list-meta").textContent =
+    `Visar ${filtered.length} av ${areas.length} ${areaName} · ${customerCount} kunder`;
   if (!filtered.length) {
-    municipalityRows.innerHTML = '<tr><td class="empty-row" colspan="3">Inga kommuner matchar filtret.</td></tr>';
+    rows.innerHTML = `<tr><td class="empty-row" colspan="3">Inga ${areaName} matchar filtret.</td></tr>`;
     return;
   }
 
-  municipalityRows.innerHTML = filtered.map(municipality => {
+  rows.innerHTML = filtered.map(municipality => {
     const isAdmin = currentUser?.role === "admin";
+    const pending = pendingAreaProducts[type].get(municipality.code);
+    const displayedProducts = pending || municipality.products;
     const productControls = isAdmin
       ? `<div class="municipality-products">${products.map(product => `
           <label class="municipality-product-option">
             <input type="checkbox" data-product-checkbox="${escapeHTML(product.id)}"
               aria-label="${escapeHTML(product.name)} för ${escapeHTML(municipality.name)}"
-              ${municipality.products.includes(product.id) ? "checked" : ""}>
+              ${displayedProducts.includes(product.id) ? "checked" : ""}>
             ${escapeHTML(product.name)}
           </label>
         `).join("")}</div>`
@@ -161,7 +174,7 @@ function renderMunicipalityRows() {
         <td>${escapeHTML(municipality.name)}</td>
         <td>${productControls}</td>
         <td>${isAdmin
-          ? '<button class="row-save" type="button" disabled>Spara</button><span class="row-status" role="status"></span>'
+          ? `<button class="row-save" type="button" ${pending ? "" : "disabled"}>Spara</button><span class="row-status" role="status">${pending ? "Osparade ändringar" : ""}</span>`
           : '<span aria-label="Ingen åtgärd">–</span>'}</td>
       </tr>`;
   }).join("");
@@ -293,24 +306,52 @@ async function loadMapData() {
   statusElement.textContent = `${municipalities.length} kommuner`;
 }
 
+async function loadRegionData() {
+  const data = await api("/api/region-customers");
+  if (!Array.isArray(data.regions) || data.regions.length !== 21 || !Array.isArray(data.products)) {
+    throw new Error("Regionlistan kunde inte läsas.");
+  }
+  regions = data.regions;
+  products = data.products;
+  renderAreaRows("region");
+}
+
+async function loadCustomerData() {
+  await Promise.all([
+    loadMapData().catch(error => {
+      if (error.status !== 401) statusElement.textContent = error.message;
+    }),
+    loadRegionData().catch(error => {
+      if (error.status !== 401) {
+        document.querySelector("#region-list-meta").textContent = error.message;
+        regionRows.innerHTML = '<tr><td class="empty-row" colspan="3">Regionlistan kunde inte laddas.</td></tr>';
+      }
+    })
+  ]);
+}
+
 document.querySelector("#municipality-search").addEventListener("input", renderMunicipalityRows);
 document.querySelector("#municipality-filter").addEventListener("change", renderMunicipalityRows);
+document.querySelector("#region-search").addEventListener("input", () => renderAreaRows("region"));
+document.querySelector("#region-filter").addEventListener("change", () => renderAreaRows("region"));
 
-municipalityRows.addEventListener("change", event => {
+function handleAreaChange(event, type) {
   if (!event.target.matches("[data-product-checkbox]")) return;
   const row = event.target.closest("tr");
   const code = row.dataset.code;
-  const municipality = municipalityByCode.get(code);
+  const municipality = type === "region" ? regions.find(region => region.code === code) : municipalityByCode.get(code);
   const selected = [...row.querySelectorAll("[data-product-checkbox]:checked")]
     .map(input => input.dataset.productCheckbox).sort();
   const current = [...municipality.products].sort();
   const changed = JSON.stringify(selected) !== JSON.stringify(current);
+  if (changed) pendingAreaProducts[type].set(code, selected);
+  else pendingAreaProducts[type].delete(code);
   row.querySelector(".row-save").disabled = !changed;
   row.querySelector(".row-status").textContent = changed ? "Osparade ändringar" : "";
   row.querySelector(".row-status").classList.remove("error");
-});
+}
 
-municipalityRows.addEventListener("click", async event => {
+async function handleAreaSave(event, type) {
   const saveButton = event.target.closest(".row-save");
   if (!saveButton || saveButton.disabled || currentUser?.role !== "admin") return;
   const row = saveButton.closest("tr");
@@ -318,28 +359,42 @@ municipalityRows.addEventListener("click", async event => {
   const selected = [...row.querySelectorAll("[data-product-checkbox]:checked")]
     .map(input => input.dataset.productCheckbox);
   const status = row.querySelector(".row-status");
+  const inputs = row.querySelectorAll("[data-product-checkbox]");
+  for (const input of inputs) input.disabled = true;
   saveButton.disabled = true;
   saveButton.textContent = "Sparar…";
   status.textContent = "";
   status.classList.remove("error");
   try {
-    await api(`/api/admin/municipalities/${code}/products`, {
+    const isRegion = type === "region";
+    await api(`/api/admin/${isRegion ? "regions" : "municipalities"}/${code}/products`, {
       method: "PUT",
       body: JSON.stringify({ products: selected })
     });
-    municipalityByCode.get(code).products = selected;
-    renderLegend();
-    renderMunicipalityRows();
-    updateMapColors();
-    const savedStatus = municipalityRows.querySelector(`[data-code="${code}"] .row-status`);
+    const area = isRegion ? regions.find(region => region.code === code) : municipalityByCode.get(code);
+    area.products = selected;
+    pendingAreaProducts[type].delete(code);
+    renderAreaRows(type);
+    if (!isRegion) {
+      renderLegend();
+      updateMapColors();
+    }
+    const rows = isRegion ? regionRows : municipalityRows;
+    const savedStatus = rows.querySelector(`[data-code="${code}"] .row-status`);
     if (savedStatus) savedStatus.textContent = "Sparat";
   } catch (error) {
+    for (const input of inputs) input.disabled = false;
     saveButton.disabled = false;
     saveButton.textContent = "Spara";
     status.textContent = error.message;
     status.classList.add("error");
   }
-});
+}
+
+for (const [type, rows] of [["municipality", municipalityRows], ["region", regionRows]]) {
+  rows.addEventListener("change", event => handleAreaChange(event, type));
+  rows.addEventListener("click", event => handleAreaSave(event, type));
+}
 
 document.querySelector("#login-button").addEventListener("click", () => {
   document.querySelector("#login-error").hidden = true;
@@ -369,11 +424,7 @@ loginForm.addEventListener("submit", async event => {
   } finally {
     submitButton.disabled = false;
   }
-  try {
-    await loadMapData();
-  } catch (error) {
-    statusElement.textContent = error.message;
-  }
+  await loadCustomerData();
 });
 
 document.querySelector("#logout-button").addEventListener("click", async () => {
@@ -382,14 +433,19 @@ document.querySelector("#logout-button").addEventListener("click", async () => {
     currentUser = null;
     products = [];
     municipalities = [];
+    regions = [];
+    pendingAreaProducts.municipality.clear();
+    pendingAreaProducts.region.clear();
     municipalityByCode.clear();
     mapPathGroup = null;
     d3.select(mapContainer).select("svg").remove();
     renderMunicipalityRows();
+    renderAreaRows("region");
     document.querySelector("#account-label").textContent = "Logga in för att visa kundkartan";
     document.querySelector("#login-button").hidden = false;
     document.querySelector("#logout-button").hidden = true;
     document.querySelector("#customer-list-meta").textContent = "Logga in för att visa listan.";
+    document.querySelector("#region-list-meta").textContent = "Logga in för att visa listan.";
     document.querySelector("#stat-total").textContent = "–";
     document.querySelector("#stat-municipalities").textContent = "290";
     document.querySelector("#product-stats").innerHTML = "";
@@ -405,7 +461,7 @@ async function initialize() {
   try {
     const result = await api("/api/me");
     setUser(result.user);
-    await loadMapData();
+    await loadCustomerData();
   } catch (error) {
     if (error.status !== 401) statusElement.textContent = error.message;
   }

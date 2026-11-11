@@ -205,3 +205,27 @@ CREATE TABLE municipality_customer_change (
 
 CREATE INDEX municipality_customer_change_code_idx
     ON municipality_customer_change (municipality_code, changed_at DESC);
+
+CREATE TABLE region_customer_product (
+    region_code TEXT NOT NULL CHECK (region_code GLOB '[0-9][0-9]'),
+    product_id TEXT NOT NULL REFERENCES municipality_product(id) ON DELETE RESTRICT,
+    created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    created_by INTEGER REFERENCES app_user(id) ON DELETE SET NULL,
+    PRIMARY KEY (region_code, product_id)
+);
+
+CREATE TABLE region_customer_change (
+    id INTEGER PRIMARY KEY,
+    region_code TEXT NOT NULL CHECK (region_code GLOB '[0-9][0-9]'),
+    actor_id INTEGER REFERENCES app_user(id) ON DELETE SET NULL,
+    product_ids_json TEXT NOT NULL CHECK (json_valid(product_ids_json)),
+    changed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+
+CREATE INDEX region_customer_change_code_idx
+    ON region_customer_change (region_code, changed_at DESC);
+
+CREATE TABLE customer_import (
+    id TEXT PRIMARY KEY,
+    imported_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
