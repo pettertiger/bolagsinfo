@@ -12,7 +12,7 @@
 ## 🔄 Nästa steg
 
 ### 1. Verifiera Installation
-- [ ] Kör databas-migration: `wrangler d1 migrations apply intra --remote`
+- [ ] Kör databas-migrationerna: `npx wrangler d1 migrations apply D8 --remote`
 - [ ] Verifiera att `intranet_section` tabellen finns i databasen
 - [ ] Kontrollera att "Anställd" är aktiverad i tabellen
 
