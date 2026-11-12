@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "bolagsinfo",
+  "name": "intra",
   "main": "index.js",
   "compatibility_date": "2026-09-30",
   "triggers": {
@@ -8,7 +8,7 @@
   },
   "routes": [
     {
-      "pattern": "bolagsinfo.lantero.online",
+      "pattern": "intra.lantero.online",
       "custom_domain": true
     }
   ],

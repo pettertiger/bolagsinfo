@@ -1,0 +1,14 @@
+// This Wrangler configuration sets up a redirect from the old domain to the new one
+// Deploy this separately if you want the old domain to redirect to the new one
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bolagsinfo-redirect",
+  "main": "redirect.js",
+  "compatibility_date": "2026-09-30",
+  "routes": [
+    {
+      "pattern": "bolagsinfo.lantero.online",
+      "custom_domain": true
+    }
+  ]
+}
