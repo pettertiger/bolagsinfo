@@ -994,6 +994,39 @@ export default {
       });
     }
 
+    if (request.method === "GET" && url.pathname === "/api/sections") {
+      const result = await requireSession(request, env);
+      if (result.response) return result.response;
+      const sections = await env.D8.prepare(`
+        SELECT id, name, description, is_active, sort_order
+        FROM intranet_section
+        ORDER BY sort_order ASC
+      `).all();
+      const stateMap = {};
+      sections.results.forEach(section => {
+        stateMap[section.id] = section.is_active === 1;
+      });
+      return json(stateMap);
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/sections") {
+      const result = await requireAdmin(request, env);
+      if (result.response) return result.response;
+      const body = await readJson(request);
+      const sectionId = typeof body?.sectionId === "string" ? body.sectionId.trim() : "";
+      const active = Boolean(body?.active);
+      
+      if (!sectionId) return json({ error: "sectionId krävs." }, 400);
+      
+      await env.D8.prepare(`
+        UPDATE intranet_section
+        SET is_active = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_by = ?
+        WHERE id = ?
+      `).bind(active ? 1 : 0, result.session.id, sectionId).run();
+      
+      return json({ ok: true });
+    }
+
     if (request.method === "GET" && url.pathname === "/api/contracts") {
       const result = await requireSession(request, env);
       if (result.response) return result.response;
