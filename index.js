@@ -1,5 +1,6 @@
 import { MUNICIPALITIES } from "./municipalities.js";
 import { REGIONS } from "./regions.js";
+import { syncSellfinity } from "./sellfinity.js";
 
 const SESSION_COOKIE = "bolagsinfo_session";
 const SESSION_DAYS = 7;
@@ -203,6 +204,10 @@ const compatibleComparisonQuery = `
 `;
 
 export default {
+  async scheduled(controller, env) {
+    await syncSellfinity(env);
+  },
+
   async fetch(request, env) {
     const url = new URL(request.url);
 
@@ -291,12 +296,25 @@ export default {
         productsByArea.set(assignment.area_code, products);
       }
 
+      const sellfinityRows = regionListRequest ? null : await env.D8.prepare(
+        "SELECT municipality_code, status FROM sellfinity_municipality_status"
+      ).all();
+      const sellfinitySync = regionListRequest ? null : await env.D8.prepare(
+        "SELECT last_success_at, last_attempt_at, last_error FROM sellfinity_sync WHERE id = 1"
+      ).first();
+      const sellfinityByArea = new Map((sellfinityRows?.results || []).map(row => [row.municipality_code, row.status]));
+
       return json({
         products: productRows.results,
+        ...(regionListRequest ? {} : { sellfinitySync }),
         [regionListRequest ? "regions" : "municipalities"]: areas
           .map(area => ({
             ...area,
-            products: productsByArea.get(area.code) || []
+            products: productsByArea.get(area.code) || [],
+            ...(regionListRequest ? {} : {
+              sellfinityStatus: sellfinitySync?.last_success_at
+                ? sellfinityByArea.get(area.code) || "unmatched" : "unavailable"
+            })
           }))
           .sort((left, right) => left.name.localeCompare(right.name, "sv"))
       });

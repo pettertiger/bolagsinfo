@@ -130,8 +130,9 @@ function renderAreaRows(type) {
   const areas = isRegion ? regions : municipalities;
   const rows = isRegion ? regionRows : municipalityRows;
   const areaName = isRegion ? "regioner" : "kommuner";
+  const columnCount = isRegion ? 3 : 4;
   if (!areas.length) {
-    rows.innerHTML = `<tr><td class="empty-row" colspan="3">Logga in för att visa ${isRegion ? "regionlistan" : "kommunlistan"}.</td></tr>`;
+    rows.innerHTML = `<tr><td class="empty-row" colspan="${columnCount}">Logga in för att visa ${isRegion ? "regionlistan" : "kommunlistan"}.</td></tr>`;
     return;
   }
   const search = document.querySelector(`#${type}-search`).value.trim().toLocaleLowerCase("sv");
@@ -147,7 +148,7 @@ function renderAreaRows(type) {
   document.querySelector(isRegion ? "#region-list-meta" : "#customer-list-meta").textContent =
     `Visar ${filtered.length} av ${areas.length} ${areaName} · ${customerCount} kunder`;
   if (!filtered.length) {
-    rows.innerHTML = `<tr><td class="empty-row" colspan="3">Inga ${areaName} matchar filtret.</td></tr>`;
+    rows.innerHTML = `<tr><td class="empty-row" colspan="${columnCount}">Inga ${areaName} matchar filtret.</td></tr>`;
     return;
   }
 
@@ -173,6 +174,14 @@ function renderAreaRows(type) {
       <tr data-code="${escapeHTML(municipality.code)}">
         <td>${escapeHTML(municipality.name)}</td>
         <td>${productControls}</td>
+        ${isRegion ? "" : `<td>${escapeHTML({
+          customer: "Är kund",
+          ex_customer: "Har varit kund",
+          not_customer: "Inte kund",
+          unmatched: "Saknar matchning",
+          uncertain: "Osäker",
+          unavailable: "Ej synkroniserad"
+        }[municipality.sellfinityStatus] || "Okänd status")}</td>`}
         <td>${isAdmin
           ? `<button class="row-save" type="button" ${pending ? "" : "disabled"}>Spara</button><span class="row-status" role="status">${pending ? "Osparade ändringar" : ""}</span>`
           : '<span aria-label="Ingen åtgärd">–</span>'}</td>
@@ -298,6 +307,12 @@ async function loadMapData() {
 
   products = customerData.products;
   municipalities = customerData.municipalities;
+  const sync = customerData.sellfinitySync;
+  const syncLabel = document.querySelector("#sellfinity-sync-status");
+  const lastSuccess = sync?.last_success_at
+    ? `Senast uppdaterad ${new Date(sync.last_success_at).toLocaleString("sv-SE")}.`
+    : "Ingen lyckad synkronisering ännu.";
+  syncLabel.textContent = `Sellfinity: ${lastSuccess}${sync?.last_error ? ` Senaste synkroniseringen misslyckades: ${sync.last_error}` : ""}`;
   municipalityByCode = new Map(municipalities.map(municipality => [municipality.code, municipality]));
   geoData = orientMunicipalityGeometry(geography);
   renderLegend();
@@ -445,6 +460,7 @@ document.querySelector("#logout-button").addEventListener("click", async () => {
     document.querySelector("#login-button").hidden = false;
     document.querySelector("#logout-button").hidden = true;
     document.querySelector("#customer-list-meta").textContent = "Logga in för att visa listan.";
+    document.querySelector("#sellfinity-sync-status").textContent = "Sellfinity: logga in för att visa synkroniseringsstatus.";
     document.querySelector("#region-list-meta").textContent = "Logga in för att visa listan.";
     document.querySelector("#stat-total").textContent = "–";
     document.querySelector("#stat-municipalities").textContent = "290";

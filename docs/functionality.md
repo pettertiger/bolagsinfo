@@ -72,6 +72,16 @@ The initial product catalog contains Visselblåsarkanal and Redact. To add anoth
 
 After migration `0006`, apply `database/migrations/0007_region_customers_and_customer_import.sql` before deploying the region list. It adds 64 municipalities and four distinct regions from the supplied November 2026 customer list as Visselblåsarkanal customers, without deleting or replacing existing product assignments. The import marker prevents re-running the migration from restoring assignments subsequently removed by an administrator. The spreadsheet contains customer data and should not be committed to the repository.
 
+## Sellfinity municipality status
+
+The municipality list has a separate Sellfinity column. It does not change local product assignments, map colors, counts, or filters. The Worker reads contacts from `GET https://www.sellfinity.com/api/external/contacts.json`, matches company organisations by organisation number, and uses `fields` entry `field_id` 301: `customer` means "Är kund"; `ex_customer` means "Har varit kund"; `none`, `contacted`, and `in_progress` mean "Inte kund". Missing or ambiguous fields, duplicate company records, or unrecognised values are "Osäker". A missing organisation mapping or missing contact is "Saknar matchning", not "Inte kund". No successful sync is "Ej synkroniserad".
+
+The initial organisation number mapping in `municipality-organisations.js` covers only the municipalities supplied for this integration. Add verified organisation numbers for other municipalities there; regions are not included. Do not infer unmapped numbers or match by name against CRM contacts.
+
+The cron runs daily at 04:00 UTC. A successful complete fetch replaces the status snapshot atomically. A failed fetch keeps the last successful snapshot, and the municipality list shows the latest error and last successful time. The integration stores municipality statuses and sync metadata, not CRM contact details. All signed-in users can see these statuses. The API token remains on the Worker and must have the minimum contact-read access available in Sellfinity.
+
+Before deploying, obtain a Sellfinity API Bearer token and confirm its scope, pagination, returned fields, and use with Sellfinity support. Apply `database/migrations/0008_sellfinity_municipality_status.sql` and then `database/migrations/0009_sellfinity_former_customers.sql` to the production D1 database, then run `npx wrangler secret put SELLFINITY_API_TOKEN` interactively and paste the token only into that prompt. Never put it in source control or chat. Migration `0009` changes previously stored "not_customer" statuses to "uncertain", because the old sync did not distinguish former customers; a successful sync will update them. Deploy the Worker and check the status after the scheduled run; the code and mock tests alone do not verify access to the actual Sellfinity account. Confirm that the data transfer and retention meet your organisation's agreements and policies.
+
 ## Production deployment and domain
 
 - The production Worker is configured with `bolagsinfo.lantero.online` as a Cloudflare Custom Domain. Cloudflare manages the DNS record and TLS certificate for this hostname; deployment requires the `lantero.online` zone to be active in the same Cloudflare account.
