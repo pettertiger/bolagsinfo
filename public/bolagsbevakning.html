@@ -240,7 +240,7 @@
         <div class="table-shell">
           <div class="table-scroll">
             <table>
-              <thead><tr><th scope="col">Bolag</th><th scope="col"><button class="sort-button" id="sort-date" type="button" aria-label="Sortera efter förfallodatum">Förfallodatum ↑</button></th><th scope="col">Anteckning</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Åtgärder</span></th></tr></thead>
+              <thead><tr><th scope="col">Bolag</th><th scope="col"><button class="sort-button" id="sort-date" type="button" aria-label="Sortera efter förfallodatum">Förfallodatum ↑</button></th><th scope="col">Förfallodatum (Sellfinity)</th><th scope="col">Anteckning</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Åtgärder</span></th></tr></thead>
               <tbody id="contract-rows"></tbody>
             </table>
           </div>
@@ -417,12 +417,14 @@
         return;
       }
 
-      rows.innerHTML = visibleContracts.map(contract => {
+            rows.innerHTML = visibleContracts.map(contract => {
         const expired = isExpired(contract);
         const note = contract.note ? `<span class="note-chip">${escapeHTML(contract.note)}</span>` : '<span style="color:#a2aca5">–</span>';
-        return `<tr>
+        const sellfinityDueDate = ''; // TODO: Lägg till data från Sellfinity
+                return `<tr>
           <td class="company-name">${escapeHTML(contract.company)}</td>
           <td class="date-cell"><time datetime="${escapeHTML(contract.dueDate)}">${escapeHTML(formatDate(contract.dueDate))}</time></td>
+          <td class="date-cell" title="Data från Sellfinity"><span style="color:#a2aca5">–</span></td>
           <td class="note-cell">${note}</td>
           <td><span class="status ${expired ? "expired" : "upcoming"}">${expired ? "Förfallet" : "Kommande"}</span></td>
           <td><div class="row-actions"><button class="row-action" type="button" data-action="edit" data-id="${contract.id}">Redigera</button><button class="row-action delete" type="button" data-action="delete" data-id="${contract.id}">Ta bort</button></div></td>
