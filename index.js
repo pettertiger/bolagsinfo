@@ -1070,6 +1070,16 @@ export default {
       return json({ id: contractId }, 201);
     }
 
+    if (["/anstalld.html", "/anstalld.js", "/helgdagar.mjs"].includes(url.pathname)) {
+      const result = await requireSession(request, env);
+      if (result.response) {
+        return new Response(null, {
+          status: 302,
+          headers: { "cache-control": "no-store", location: "/" }
+        });
+      }
+    }
+
     return env.ASSETS.fetch(request);
   }
 };

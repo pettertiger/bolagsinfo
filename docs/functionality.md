@@ -31,6 +31,13 @@
 - Create and edit require a non-empty company name and valid date. Notes are optional.
 - Removal is explicit and manual; no scheduled job purges expired contracts. Soft-deleted rows remain available for audit and recovery.
 
+## Employee information
+
+- The employee page is `public/anstalld.html`, linked from the main navigation. Its tabs contain an overview, Swedish public holidays, vacation, VAB, and sickness absence information.
+- The employee page and its JavaScript assets require an active session. Unauthenticated requests are redirected to the sign-in page.
+- `public/helgdagar.mjs` calculates named Swedish public holidays locally for the rolling year from the current date. Ordinary Sundays, holiday eves, bridge days, and company-specific days are not listed. No external holiday API is used.
+- Vacation, VAB, and sickness content is maintained in the page markup. Review the applicable policy and source information when updating it; the holiday calculation does not determine whether an eve or bridge day is a day off.
+
 ## SCB imports and monthly lists
 
 1. Fetch SCB data in a Worker and write it to an import batch with status `staging`. The admin baseline action fetches only employee-size classes 5-7 from the legal-entity API: 20-49, 50-99, and 100-199 employees. Each 100-row cursor page is saved atomically with its cursor so an interrupted import can be resumed.

@@ -64,6 +64,28 @@ async function request(env, path, token, body) {
   }), env);
 }
 
+test("employee information assets require an active session", async () => {
+  const { db, env } = createDatabase();
+  env.ASSETS = {
+    async fetch(request) {
+      return new Response(new URL(request.url).pathname);
+    }
+  };
+  try {
+    for (const path of ["/anstalld.html", "/anstalld.js", "/helgdagar.mjs"]) {
+      const anonymousResponse = await request(env, path);
+      assert.equal(anonymousResponse.status, 302);
+      assert.equal(anonymousResponse.headers.get("location"), "/");
+
+      const signedInResponse = await request(env, path, "viewer-token");
+      assert.equal(signedInResponse.status, 200);
+      assert.equal(await signedInResponse.text(), path);
+    }
+  } finally {
+    db.close();
+  }
+});
+
 test("region and municipality APIs enforce access and keep assignments separate", async () => {
   const { db, env } = createDatabase();
   try {

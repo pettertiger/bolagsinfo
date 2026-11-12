@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>Anställdinformation | Lantero</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: light;
+      --forest: #17483d;
+      --forest-dark: #12382f;
+      --leaf: #c4d58a;
+      --ink: #24332e;
+      --muted: #6a7771;
+      --canvas: #f4f5f0;
+      --paper: #fff;
+      --line: #dce2dc;
+      --soft-green: #eaf0e8;
+      --shadow: 0 12px 32px rgba(24, 54, 44, .08);
+      font-family: "DM Sans", "Avenir Next", sans-serif;
+      color: var(--ink);
+      background: var(--canvas);
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden], .visually-hidden { display: none !important; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+    body { margin: 0; min-width: 320px; background: var(--canvas); }
+    button { font: inherit; cursor: pointer; }
+    a { color: inherit; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2, h3 { font-family: "Manrope", "DM Sans", sans-serif; letter-spacing: 0; }
+    .shell { min-height: 100vh; }
+    .topbar { background: white; color: var(--ink); border-bottom: 1px solid var(--line); }
+    .topbar-inner { max-width: 1380px; min-height: 72px; margin: auto; padding: 0 36px; display: flex; align-items: center; justify-content: space-between; gap: 24px; }
+    .brand { display: flex; align-items: center; gap: 13px; color: var(--ink); text-decoration: none; }
+    .brand-logo { display: block; width: auto; height: 52px; }
+    .brand-divider { height: 24px; width: 1px; background: var(--line); }
+    .product-name { font-size: 13px; color: var(--muted); }
+    main { max-width: 1120px; margin: auto; padding: 30px 36px 76px; }
+    .breadcrumbs { display: flex; gap: 9px; align-items: center; color: var(--muted); font-size: 12px; }
+    .breadcrumbs a { text-decoration: none; }
+    .breadcrumbs a:hover { text-decoration: underline; }
+    .breadcrumbs span:last-child { color: var(--ink); }
+    .page-head { margin: 23px 0 25px; }
+    .eyebrow { margin: 0 0 8px; color: var(--forest); font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase; }
+    h1 { margin-bottom: 7px; font-size: clamp(28px, 3vw, 38px); line-height: 1.12; font-weight: 700; }
+    .page-subtitle { margin: 0; color: var(--muted); font-size: 15px; }
+    .global-tabs { display: flex; gap: 26px; border-bottom: 1px solid var(--line); margin-bottom: 24px; overflow-x: auto; }
+    .global-tabs a { position: relative; display: block; padding: 0 0 13px; text-decoration: none; color: var(--muted); font-size: 14px; font-weight: 600; white-space: nowrap; }
+    .global-tabs a[aria-current="page"] { color: var(--forest); }
+    .global-tabs a[aria-current="page"]::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 3px; background: var(--forest); content: ""; }
+    .content-tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--line); margin-bottom: 28px; overflow-x: auto; }
+    .content-tabs [role="tab"] { position: relative; flex: 0 0 auto; padding: 0 0 13px; border: 0; background: transparent; color: var(--muted); font-size: 14px; font-weight: 600; white-space: nowrap; }
+    .content-tabs [role="tab"][aria-selected="true"] { color: var(--forest); }
+    .content-tabs [role="tab"][aria-selected="true"]::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 3px; background: var(--forest); content: ""; }
+    .content-tabs [role="tab"]:focus-visible, .quick-link:focus-visible { outline: 3px solid #8eaa9a; outline-offset: 4px; }
+    .panel { min-height: 300px; }
+    .intro { max-width: 760px; margin-bottom: 22px; color: #53615b; font-size: 14px; line-height: 1.7; }
+    .overview-grid { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: 20px; }
+    .card { background: var(--paper); border: 1px solid var(--line); box-shadow: var(--shadow); }
+    .card-head { padding: 19px 22px 14px; border-bottom: 1px solid var(--line); }
+    .card-head .eyebrow { margin-bottom: 6px; }
+    .card-head h2 { margin: 0; font-size: 18px; }
+    .next-card { display: flex; min-height: 215px; flex-direction: column; justify-content: space-between; overflow: hidden; background: var(--forest); color: white; }
+    .next-card .card-head { border-color: rgba(255,255,255,.18); }
+    .next-card .eyebrow { color: var(--leaf); }
+    .next-content { padding: 20px 22px 24px; }
+    .next-holiday-name { display: block; margin-bottom: 8px; font: 700 24px/1.2 "Manrope", sans-serif; }
+    .next-holiday-date { color: rgba(255,255,255,.78); font-size: 14px; }
+    .holiday-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+    .holiday-item { display: flex; justify-content: space-between; align-items: baseline; gap: 18px; padding: 15px 20px; border-bottom: 1px solid #edf0ec; }
+    .holiday-item:last-child { border-bottom: 0; }
+    .holiday-date { color: var(--muted); font-size: 13px; white-space: nowrap; }
+    .holiday-name { font-size: 14px; font-weight: 700; text-align: right; }
+    .empty-state { padding: 18px 20px; color: var(--muted); font-size: 13px; }
+    .quick-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 22px; }
+    .quick-link { min-height: 76px; padding: 15px 16px; border: 1px solid var(--line); background: white; color: var(--forest); font-size: 13px; font-weight: 700; text-align: left; }
+    .quick-link:hover { border-color: #9caf9f; background: #f9fbf8; }
+    .period { margin: 0 0 14px; color: var(--muted); font-size: 12px; }
+    .holiday-panel { max-width: 780px; border: 1px solid var(--line); background: white; box-shadow: var(--shadow); }
+    .holiday-panel .holiday-item { padding: 16px 20px; }
+    .source-line { margin-top: 17px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .source-line a { text-decoration-color: #a2b3a9; text-underline-offset: 3px; }
+    .content-block { max-width: 820px; margin-bottom: 22px; padding: 22px 24px; border: 1px solid var(--line); background: white; box-shadow: 0 5px 20px rgba(24,54,44,.04); }
+    .content-block h2 { margin-bottom: 10px; font-size: 20px; }
+    .content-block h3 { margin: 22px 0 9px; font-size: 16px; }
+    .content-block h3:first-child { margin-top: 0; }
+    .content-block p, .content-block li { color: #46564e; font-size: 14px; line-height: 1.7; }
+    .content-block p:last-child { margin-bottom: 0; }
+    .content-block ol, .content-block ul { margin: 0; padding-left: 21px; }
+    .content-block li + li { margin-top: 7px; }
+    .content-block strong { color: var(--ink); }
+    .source-meta { margin-top: 18px; padding-top: 13px; border-top: 1px solid #edf0ec; color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .source-meta p { margin: 0; color: inherit; font-size: inherit; }
+    .source-meta p + p { margin-top: 3px; }
+    .footer { display: flex; justify-content: space-between; gap: 20px; max-width: 1380px; margin: auto; padding: 20px 36px 30px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11px; }
+    @media (max-width: 760px) {
+      .topbar-inner { min-height: 64px; padding: 0 20px; }
+      .brand-logo { height: 48px; }
+      .brand-divider, .product-name { display: none; }
+      main { padding: 24px 20px 56px; }
+      .overview-grid { grid-template-columns: 1fr; }
+      .quick-links { grid-template-columns: 1fr; }
+      .holiday-item { align-items: flex-start; flex-direction: column; gap: 5px; }
+      .holiday-name { text-align: left; }
+      .content-block { padding: 19px 18px; }
+      .footer { flex-direction: column; padding: 18px 20px 26px; }
+    }
+    @media (max-width: 480px) {
+      .topbar-inner { padding: 0 16px; }
+      main { padding-right: 15px; padding-left: 15px; }
+      .global-tabs { gap: 20px; }
+      .content-tabs { gap: 17px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="/" aria-label="Lantero, startsida">
+          <img class="brand-logo" src="/lantero-logo.png" alt="">
+          <span class="brand-divider" aria-hidden="true"></span>
+          <span class="product-name">Anställdinformation</span>
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <nav class="breadcrumbs" aria-label="Brödsmulor">
+        <a href="/">Lantero</a>
+        <span aria-hidden="true">/</span>
+        <span>Anställd</span>
+      </nav>
+
+      <header class="page-head">
+        <p class="eyebrow">Praktisk information</p>
+        <h1>Anställd</h1>
+        <p class="page-subtitle">Samlad information om helgdagar, semester, VAB och sjukfrånvaro.</p>
+      </header>
+
+      <nav class="global-tabs" aria-label="Sidor">
+        <a href="/">Avtal</a>
+        <a href="/karta.html">Kundkarta</a>
+        <a href="/anstalld.html" aria-current="page">Anställd</a>
+      </nav>
+
+      <div class="content-tabs" role="tablist" aria-label="Anställdinformation">
+        <button id="tab-overview" type="button" role="tab" aria-selected="true" aria-controls="panel-overview" tabindex="0" data-tab="overview">Översikt</button>
+        <button id="tab-holidays" type="button" role="tab" aria-selected="false" aria-controls="panel-holidays" tabindex="-1" data-tab="holidays">Röda dagar</button>
+        <button id="tab-vacation" type="button" role="tab" aria-selected="false" aria-controls="panel-vacation" tabindex="-1" data-tab="vacation">Semester</button>
+        <button id="tab-vab" type="button" role="tab" aria-selected="false" aria-controls="panel-vab" tabindex="-1" data-tab="vab">VAB</button>
+        <button id="tab-sickness" type="button" role="tab" aria-selected="false" aria-controls="panel-sickness" tabindex="-1" data-tab="sickness">Sjukfrånvaro</button>
+      </div>
+
+      <section id="panel-overview" class="panel" role="tabpanel" aria-labelledby="tab-overview" data-panel="overview">
+        <p class="intro">Här hittar du den närmaste helgdagen och genvägar till praktisk information om ledighet och frånvaro.</p>
+        <div class="overview-grid">
+          <article class="card next-card">
+            <div class="card-head"><p class="eyebrow">Nästa datum</p><h2>Kommande helgdag</h2></div>
+            <div class="next-content" id="next-holiday" aria-live="polite"></div>
+          </article>
+          <article class="card">
+            <div class="card-head"><p class="eyebrow">Kommande 12 månader</p><h2>Närmast i kalendern</h2></div>
+            <ul class="holiday-list" id="overview-holidays" aria-live="polite"></ul>
+          </article>
+        </div>
+        <div class="quick-links" aria-label="Genvägar">
+          <button class="quick-link" type="button" data-open-tab="holidays">Se alla kommande helgdagar</button>
+          <button class="quick-link" type="button" data-open-tab="vacation">Läs om semester</button>
+          <button class="quick-link" type="button" data-open-tab="vab">Läs om VAB</button>
+        </div>
+      </section>
+
+      <section id="panel-holidays" class="panel" role="tabpanel" aria-labelledby="tab-holidays" data-panel="holidays" hidden>
+        <p class="intro">Här visas namngivna svenska allmänna helgdagar från dagens datum och ett år framåt. Vanliga söndagar, aftnar, klämdagar och företagsdagar visas inte som egna datum.</p>
+        <p class="period" id="holiday-period"></p>
+        <div class="holiday-panel">
+          <ol class="holiday-list" id="holiday-list" aria-live="polite"></ol>
+        </div>
+        <p class="source-line">Datumen beräknas automatiskt utifrån <a href="https://www.riksdagen.se/sv/dokument-och-lagar/dokument/svensk-forfattningssamling/lag-1989253-om-allmanna-helgdagar_sfs-1989-253/" target="_blank" rel="noopener noreferrer">lagen om allmänna helgdagar</a>.</p>
+      </section>
+
+      <section id="panel-vacation" class="panel" role="tabpanel" aria-labelledby="tab-vacation" data-panel="vacation" hidden>
+        <p class="intro">Här hittar du vad som gäller för semester och hur du planerar och registrerar din ledighet.</p>
+        <article class="content-block">
+          <h2>Vad gäller?</h2>
+          <p>Lantero tillämpar 30 semesterdagar per år, om inget annat har avtalats skriftligen. Semester planeras i dialog med teamet eller arbetsgruppen så att ledigheten fungerar tillsammans med verksamhetens bemanning.</p>
+
+          <h3>Så ansöker du om semester</h3>
+          <ol>
+            <li><strong>Planera med teamet:</strong> Stäm av önskade datum i god tid och säkerställ att ansvar, kundåtaganden och andra uppgifter kan hanteras under ledigheten.</li>
+            <li><strong>Lägg in ansökan:</strong> Registrera semestern i Absentify, som finns under de tre prickarna längst ner i vänsterkolumnen i Teams. Ange tydligt om ansökan gäller hela eller halva dagar.</li>
+            <li><strong>Uppdatera semesterschemat:</strong> Registrera den planerade ledigheten i det gemensamma semesterschemat.</li>
+            <li><strong>Invänta besked:</strong> Betrakta ledigheten som beslutad först när ansökan har hanterats enligt den aktuella rutinen.</li>
+          </ol>
+
+          <h3>Bra att veta</h3>
+          <ul>
+            <li><strong>Antal dagar:</strong> Utgångspunkten är 30 semesterdagar per år. Ditt anställningsavtal gäller om något annat har avtalats skriftligen.</li>
+            <li><strong>Planering:</strong> Tidig dialog gör det lättare att samordna ledigheten och säkerställa bemanningen.</li>
+            <li><strong>Hela och halva dagar:</strong> Kontrollera att omfattningen är rätt när du registrerar ansökan i Absentify.</li>
+            <li><strong>Ditt saldo:</strong> Antalet betalda dagar kan påverkas av när du började din anställning, frånvaro och individuella avtalsvillkor. Kontrollera ditt aktuella semestersaldo innan du planerar längre ledighet.</li>
+          </ul>
+          <p><strong>Vid frågor:</strong> Prata med din närmaste chef om planering, godkännande eller vad som gäller i just din situation.</p>
+          <div class="source-meta"><p>Informationens ägare: Petter Tiger</p><p>Källa: Lanteros personalhandbok</p></div>
+        </article>
+      </section>
+
+      <section id="panel-vab" class="panel" role="tabpanel" aria-labelledby="tab-vab" data-panel="vab" hidden>
+        <p class="intro">Här hittar du vad du behöver göra när du behöver vara hemma för vård av barn.</p>
+        <article class="content-block">
+          <h2>Vad gäller?</h2>
+          <p>Som anställd har du lagstadgad rätt till ledighet för vård av barn (VAB) när ditt barn är sjukt, behöver följas till läkare eller tandläkare eller om barnets ordinarie vårdnadshavare eller dagmamma är sjuk. Rätten gäller generellt för barn upp till 12 års ålder (eller upp till 16 år vid särskilda behov).</p>
+
+          <h3>Så gör du vid VAB</h3>
+          <ol>
+            <li><strong>Anmäl till arbetsgivaren samma morgon:</strong> Meddela din närmaste chef så tidigt som möjligt, senast före arbetsdagens start. Ange om du förväntas vara borta hela dagen eller en del av dagen.</li>
+            <li><strong>Anmäl till Försäkringskassan:</strong> Ansök om tillfällig föräldrapenning via <a href="https://www.forsakringskassan.se/privatperson/familj-och-barn/vab-for-barn-under-12-ar" target="_blank" rel="noopener noreferrer">Försäkringskassans app eller webbplats</a> första dagen du är hemma.</li>
+            <li><strong>Rapportera internt:</strong> Registrera frånvaron i Absentify via Teams. Ange exakt omfattning, till exempel 100 % eller 50 %.</li>
+            <li>Vid frånvaro över flera dagar, <strong>håll chefen uppdaterad</strong> om förväntad återkomst.</li>
+          </ol>
+
+          <h3>Övrigt</h3>
+          <ul>
+            <li><strong>Att vobba:</strong> Om barnets tillstånd tillåter och du själv önskar kan du välja att arbeta helt eller delvis hemifrån. Du kan inte få ersättning från Försäkringskassan för tid som du arbetar och får lön för. Stäm alltid av med din chef innan du väljer att vobba.</li>
+            <li><strong>Del av dag:</strong> VAB kan tas ut i 100 %, 75 %, 50 %, 25 % eller 12,5 % av en arbetsdag. Tidredovisa exakt de timmar du varit frånvarande.</li>
+            <li><strong>Läkarintyg från dag 8:</strong> Vid VAB i mer än 7 kalenderdagar i följd kräver Försäkringskassan ett läkarintyg för barnet för att du ska få fortsatt ersättning.</li>
+            <li><strong>Längre frånvaro:</strong> Håll chefen uppdaterad om när du beräknas vara tillbaka så att teamet kan prioritera om pågående uppgifter.</li>
+          </ul>
+          <div class="source-meta"><p>Informationens ägare: Petter Tiger</p><p>Källa: Försäkringskassan</p></div>
+        </article>
+      </section>
+
+      <section id="panel-sickness" class="panel" role="tabpanel" aria-labelledby="tab-sickness" data-panel="sickness" hidden>
+        <p class="intro">Här hittar du vad du behöver göra om du blir sjuk och inte kan arbeta.</p>
+        <article class="content-block">
+          <h2>Vad gäller?</h2>
+          <p>Vid egen sjukdom gäller rätt till sjuklön och sjukpenning enligt lag, kollektivavtal och Försäkringskassans regler. Sjuklöneperiod, karensavdrag, intygskrav och ersättningsnivå kan påverkas av din situation.</p>
+
+          <h3>Så gör du vid sjukfrånvaro</h3>
+          <ol>
+            <li><strong>Meddela din närmaste chef:</strong> Gör det så tidigt som möjligt den första sjukdagen, helst före arbetsdagens start. Om du varit förhindrad meddelar du chefen så snart det är möjligt.</li>
+            <li><strong>Registrera frånvaron:</strong> Lägg in sjukfrånvaron i Absentify via Teams och ange om du är frånvarande hela eller delar av dagen.</li>
+            <li><strong>Håll kontakten:</strong> Uppdatera chefen om beräknad återgång och meddela om frånvaron blir längre än väntat.</li>
+            <li><strong>Lämna underlag vid behov:</strong> Skicka sjukförsäkran och läkarintyg när det krävs enligt gällande regler eller arbetsgivarens anvisning.</li>
+          </ol>
+
+          <h3>Bra att veta</h3>
+          <ul>
+            <li><strong>Karensavdrag:</strong> Karensavdrag görs enligt gällande regler.</li>
+            <li><strong>Ersättning:</strong> Arbetsgivaren betalar normalt sjuklön under sjuklöneperioden. Därefter kan du ansöka om sjukpenning hos Försäkringskassan.</li>
+            <li><strong>Läkarintyg:</strong> Intyg lämnas när det krävs. Vid särskilda skäl kan arbetsgivaren begära ett tidigare läkarintyg enligt tillämpliga regler.</li>
+            <li><strong>Längre sjukfrånvaro:</strong> Du och din chef håller löpande kontakt om återgång, möjliga anpassningar och eventuellt rehabiliteringsstöd.</li>
+            <li><strong>Smittrisk:</strong> Om du kan arbeta men är avstängd på grund av smittrisk kan andra ersättningsregler gälla. Kontakta din chef och Försäkringskassan.</li>
+          </ul>
+          <p><strong>Kontrollera alltid aktuella regler</strong> om sjuklön, sjukpenning, karensavdrag och medicinska underlag hos <a href="https://www.forsakringskassan.se/" target="_blank" rel="noopener noreferrer">Försäkringskassan</a>.</p>
+          <div class="source-meta"><p>Informationens ägare: Petter Tiger</p><p>Källor: Lanteros personalhandbok och Försäkringskassan</p></div>
+        </article>
+      </section>
+    </main>
+
+    <footer class="footer"><span>Lantero · Anställdinformation</span><span>Informationen om helgdagar uppdateras automatiskt.</span></footer>
+  </div>
+  <script type="module" src="/anstalld.js"></script>
+</body>
+</html>
