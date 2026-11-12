@@ -122,63 +122,28 @@
   </div>
 
   <script type="module">
-    const SECTION_CONFIG = {
-      anstalld: {
-        name: 'Anställd på Lantero',
-        description: 'Information för anställda: rutiner, frånvaro, helgdagar och arbetsvillkor.',
-        url: '/anstalld.html',
-        icon: '👤'
-      },
-      kunder: {
-        name: 'Kunder & bolagsbevakning',
-        description: 'Avtalsöversikt, kundkarta och bolagsbevakning.',
-        url: '/kunder.html',
-        icon: '🏢'
-      },
-      media: {
-        name: 'Media & Digitalt',
-        description: 'Mediaöversikt, webbtrafik-dashboard, statistik och publikationer.',
-        url: '/media.html',
-        icon: '📊'
-      },
-      resurser: {
-        name: 'Resurser & Utveckling',
-        description: 'Verktyg, dokumentation, kunskapsbank och utvecklingsöversikt.',
-        url: '/resurser.html',
-        icon: '📚'
-      },
-      'om-lantero': {
-        name: 'Om Lantero',
-        description: 'Om företaget, värderingar, organisation och kontaktinformation.',
-        url: '/om-lantero.html',
-        icon: 'ℹ️'
-      }
+    import { loadPublishedSections } from '/intranet-content.js';
+
+    const SECTION_LINKS = {
+      anstalld: { url: '/anstalld.html', icon: '👤' },
+      kunder: { url: '/kunder.html', icon: '🏢' },
+      media: { icon: '📊' },
+      resurser: { icon: '📚' },
+      'om-lantero': { icon: 'ℹ️' }
     };
 
-    async function loadActiveSections() {
-      try {
-        const response = await fetch('/api/sections');
-        if (!response.ok) throw new Error('API error');
-        return await response.json();
-      } catch (error) {
-        console.error('Fel vid hämtning av sektioner:', error);
-        return { anstalld: true, kunder: true };
-      }
-    }
-
     async function renderSections() {
-      const activeSections = await loadActiveSections();
       const container = document.getElementById('sections-container');
-      
-      const activeSectionIds = Object.entries(activeSections)
-        .filter(([_, isActive]) => isActive)
-        .map(([id]) => id)
-        .sort((a, b) => {
-          const order = ['anstalld', 'kunder', 'media', 'resurser', 'om-lantero'];
-          return order.indexOf(a) - order.indexOf(b);
-        });
+      container.textContent = 'Laddar avsnitt …';
+      let sections;
+      try {
+        sections = await loadPublishedSections();
+      } catch (error) {
+        container.textContent = `Avsnitten kunde inte hämtas: ${error.message}`;
+        return;
+      }
 
-      if (activeSectionIds.length === 0) {
+      if (sections.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
             <span class="empty-state-icon">📭</span>
@@ -192,18 +157,22 @@
       const grid = document.createElement('div');
       grid.className = 'section-grid';
 
-      activeSectionIds.forEach(sectionId => {
-        const config = SECTION_CONFIG[sectionId];
-        if (!config) return;
-
+      sections.forEach(section => {
+        const config = SECTION_LINKS[section.id] || {};
         const card = document.createElement('a');
-        card.href = config.url;
+        card.href = config.url || `/innehall.html?id=${encodeURIComponent(section.id)}`;
         card.className = 'section-card';
-        card.innerHTML = `
-          <span class="section-card-icon">${config.icon}</span>
-          <h2 class="section-card-title">${config.name}</h2>
-          <p class="section-card-description">${config.description}</p>
-        `;
+        const icon = document.createElement('span');
+        icon.className = 'section-card-icon';
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = config.icon || '📄';
+        const title = document.createElement('h2');
+        title.className = 'section-card-title';
+        title.textContent = section.name;
+        const description = document.createElement('p');
+        description.className = 'section-card-description';
+        description.textContent = section.description || '';
+        card.append(icon, title, description);
         grid.appendChild(card);
       });
 

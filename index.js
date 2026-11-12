@@ -157,6 +157,16 @@ function validDate(value) {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T00:00:00Z`));
 }
 
+function intranetSectionSlug(value) {
+  return value
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 60);
+}
+
 function mutationAudit(action, actorId, entityId, details = {}) {
   return [
     "INSERT INTO audit_event (actor_id, action, entity_id, details_json) VALUES (?, ?, ?, ?)",
@@ -997,16 +1007,184 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/sections") {
       const result = await requireSession(request, env);
       if (result.response) return result.response;
-      const sections = await env.D8.prepare(`
-        SELECT id, name, description, is_active, sort_order
-        FROM intranet_section
-        ORDER BY sort_order ASC
-      `).all();
-      const stateMap = {};
-      sections.results.forEach(section => {
-        stateMap[section.id] = section.is_active === 1;
+      const [sectionResult, contentResult] = await Promise.all([
+        env.D8.prepare(`
+          SELECT id, name, description, sort_order, visibility_mode
+          FROM intranet_section
+          WHERE is_active = 1
+            AND (
+              visibility_mode = 'all'
+              OR EXISTS (
+                SELECT 1 FROM intranet_section_user
+                WHERE intranet_section_user.section_id = intranet_section.id
+                  AND intranet_section_user.user_id = ?
+              )
+            )
+          ORDER BY sort_order ASC, name ASC
+        `).bind(result.session.id).all(),
+        env.D8.prepare(`
+          SELECT id, section_id, title, body, sort_order
+          FROM intranet_content_block
+          ORDER BY section_id, sort_order, id
+        `).all()
+      ]);
+      const contentBySection = new Map();
+      for (const item of contentResult.results) {
+        const content = contentBySection.get(item.section_id) || [];
+        content.push({ id: item.id, title: item.title, body: item.body });
+        contentBySection.set(item.section_id, content);
+      }
+      return json({
+        sections: sectionResult.results.map(section => ({
+          id: section.id,
+          name: section.name,
+          description: section.description,
+          sortOrder: section.sort_order,
+          visibilityMode: section.visibility_mode,
+          content: contentBySection.get(section.id) || []
+        }))
       });
-      return json(stateMap);
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/admin/sections") {
+      const result = await requireAdmin(request, env);
+      if (result.response) return result.response;
+      const [sectionResult, contentResult] = await Promise.all([
+        env.D8.prepare(`
+          SELECT id, name, description, is_active, sort_order, visibility_mode
+          FROM intranet_section
+          ORDER BY sort_order ASC, name ASC
+        `).all(),
+        env.D8.prepare(`
+          SELECT id, section_id, title, body, sort_order
+          FROM intranet_content_block
+          ORDER BY section_id, sort_order, id
+        `).all()
+      ]);
+      const contentBySection = new Map();
+      for (const item of contentResult.results) {
+        const content = contentBySection.get(item.section_id) || [];
+        content.push({
+          id: item.id,
+          title: item.title,
+          body: item.body,
+          sortOrder: item.sort_order
+        });
+        contentBySection.set(item.section_id, content);
+      }
+      return json({
+        sections: sectionResult.results.map(section => ({
+          id: section.id,
+          name: section.name,
+          description: section.description,
+          isActive: section.is_active === 1,
+          sortOrder: section.sort_order,
+          visibilityMode: section.visibility_mode,
+          content: contentBySection.get(section.id) || []
+        }))
+      });
+    }
+
+    if (request.method === "POST" && url.pathname === "/api/admin/sections") {
+      const result = await requireAdmin(request, env);
+      if (result.response) return result.response;
+      const body = await readJson(request);
+      const name = typeof body?.name === "string" ? body.name.trim() : "";
+      const description = typeof body?.description === "string" ? body.description.trim() : "";
+      const sectionId = intranetSectionSlug(name);
+      if (!name || name.length > 100 || description.length > 500 || !sectionId) {
+        return json({ error: "Ange ett avsnittsnamn och en beskrivning på högst 500 tecken." }, 400);
+      }
+      if (body?.visibilityMode !== undefined && body.visibilityMode !== "all") {
+        return json({ error: "Individuell synlighet blir tillgänglig när SSO är infört." }, 400);
+      }
+      const existing = await env.D8.prepare("SELECT id FROM intranet_section WHERE id = ?").bind(sectionId).first();
+      if (existing) return json({ error: "Det finns redan ett avsnitt med det namnet." }, 409);
+      const order = await env.D8.prepare(`
+        SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order FROM intranet_section
+      `).first();
+      await env.D8.prepare(`
+        INSERT INTO intranet_section (id, name, description, is_active, sort_order, updated_by)
+        VALUES (?, ?, ?, 0, ?, ?)
+      `).bind(sectionId, name, description || null, order.next_order, result.session.id).run();
+      return json({ id: sectionId }, 201);
+    }
+
+    const adminSectionMatch = url.pathname.match(/^\/api\/admin\/sections\/([a-z0-9-]+)$/);
+    if (adminSectionMatch && request.method === "PATCH") {
+      const result = await requireAdmin(request, env);
+      if (result.response) return result.response;
+      const sectionId = adminSectionMatch[1];
+      const body = await readJson(request);
+      const name = typeof body?.name === "string" ? body.name.trim() : "";
+      const description = typeof body?.description === "string" ? body.description.trim() : "";
+      if (!name || name.length > 100 || description.length > 500 || typeof body?.isActive !== "boolean") {
+        return json({ error: "Ogiltigt namn, beskrivning eller synlighetsstatus." }, 400);
+      }
+      if (body?.visibilityMode !== undefined && body.visibilityMode !== "all") {
+        return json({ error: "Individuell synlighet blir tillgänglig när SSO är infört." }, 400);
+      }
+      const updated = await env.D8.prepare(`
+        UPDATE intranet_section
+        SET name = ?, description = ?, is_active = ?,
+            visibility_mode = 'all',
+            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_by = ?
+        WHERE id = ?
+      `).bind(name, description || null, body.isActive ? 1 : 0, result.session.id, sectionId).run();
+      if (!updated.meta.changes) return json({ error: "Avsnittet hittades inte." }, 404);
+      return json({ ok: true });
+    }
+
+    const sectionContentMatch = url.pathname.match(/^\/api\/admin\/sections\/([a-z0-9-]+)\/content$/);
+    if (sectionContentMatch && request.method === "POST") {
+      const result = await requireAdmin(request, env);
+      if (result.response) return result.response;
+      const sectionId = sectionContentMatch[1];
+      const body = await readJson(request);
+      const title = typeof body?.title === "string" ? body.title.trim() : "";
+      const content = typeof body?.body === "string" ? body.body.trim() : "";
+      if (title.length > 160 || content.length > 20000 || (!title && !content)) {
+        return json({ error: "Ange en rubrik eller text. Rubriken får vara högst 160 tecken och texten högst 20 000." }, 400);
+      }
+      const section = await env.D8.prepare("SELECT id FROM intranet_section WHERE id = ?").bind(sectionId).first();
+      if (!section) return json({ error: "Avsnittet hittades inte." }, 404);
+      const order = await env.D8.prepare(`
+        SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order
+        FROM intranet_content_block WHERE section_id = ?
+      `).bind(sectionId).first();
+      const inserted = await env.D8.prepare(`
+        INSERT INTO intranet_content_block (section_id, title, body, sort_order, created_by, updated_by)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(sectionId, title || null, content, order.next_order, result.session.id, result.session.id).run();
+      return json({ id: inserted.meta.last_row_id }, 201);
+    }
+
+    const sectionContentItemMatch = url.pathname.match(/^\/api\/admin\/sections\/([a-z0-9-]+)\/content\/(\d+)$/);
+    if (sectionContentItemMatch && ["PATCH", "DELETE"].includes(request.method)) {
+      const result = await requireAdmin(request, env);
+      if (result.response) return result.response;
+      const sectionId = sectionContentItemMatch[1];
+      const contentId = Number(sectionContentItemMatch[2]);
+      if (request.method === "DELETE") {
+        const deleted = await env.D8.prepare(`
+          DELETE FROM intranet_content_block WHERE id = ? AND section_id = ?
+        `).bind(contentId, sectionId).run();
+        if (!deleted.meta.changes) return json({ error: "Textblocket hittades inte." }, 404);
+        return json({ ok: true });
+      }
+      const body = await readJson(request);
+      const title = typeof body?.title === "string" ? body.title.trim() : "";
+      const content = typeof body?.body === "string" ? body.body.trim() : "";
+      if (title.length > 160 || content.length > 20000 || (!title && !content)) {
+        return json({ error: "Ange en rubrik eller text. Rubriken får vara högst 160 tecken och texten högst 20 000." }, 400);
+      }
+      const updated = await env.D8.prepare(`
+        UPDATE intranet_content_block
+        SET title = ?, body = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_by = ?
+        WHERE id = ? AND section_id = ?
+      `).bind(title || null, content, result.session.id, contentId, sectionId).run();
+      if (!updated.meta.changes) return json({ error: "Textblocket hittades inte." }, 404);
+      return json({ ok: true });
     }
 
     if (request.method === "POST" && url.pathname === "/api/sections") {
@@ -1014,15 +1192,16 @@ export default {
       if (result.response) return result.response;
       const body = await readJson(request);
       const sectionId = typeof body?.sectionId === "string" ? body.sectionId.trim() : "";
-      const active = Boolean(body?.active);
+      const active = body?.active;
       
-      if (!sectionId) return json({ error: "sectionId krävs." }, 400);
+      if (!sectionId || typeof active !== "boolean") return json({ error: "sectionId och active krävs." }, 400);
       
-      await env.D8.prepare(`
+      const updated = await env.D8.prepare(`
         UPDATE intranet_section
         SET is_active = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), updated_by = ?
         WHERE id = ?
       `).bind(active ? 1 : 0, result.session.id, sectionId).run();
+      if (!updated.meta.changes) return json({ error: "Avsnittet hittades inte." }, 404);
       
       return json({ ok: true });
     }
@@ -1101,6 +1280,38 @@ export default {
       const audit = mutationAudit("contract_created", result.session.id, contractId, { companyName, dueDate });
       await env.D8.prepare(audit[0]).bind(...audit[1]).run();
       return json({ id: contractId }, 201);
+    }
+
+    const sectionByPath = {
+      "/anstalld.html": "anstalld",
+      "/anstalld.js": "anstalld",
+      "/helgdagar.mjs": "anstalld",
+      "/kunder.html": "kunder",
+      "/karta.html": "kunder",
+      "/karta.js": "kunder",
+      "/bolagsbevakning.html": "kunder"
+    };
+    const sectionId = sectionByPath[url.pathname];
+    if (sectionId) {
+      const session = await getSession(request, env);
+      const visible = await env.D8.prepare(`
+        SELECT id FROM intranet_section
+        WHERE id = ? AND is_active = 1
+          AND (
+            visibility_mode = 'all'
+            OR EXISTS (
+              SELECT 1 FROM intranet_section_user
+              WHERE intranet_section_user.section_id = intranet_section.id
+                AND intranet_section_user.user_id = ?
+            )
+          )
+      `).bind(sectionId, session?.id || 0).first();
+      if (!visible) {
+        return new Response(null, {
+          status: 302,
+          headers: { "cache-control": "no-store", location: "/" }
+        });
+      }
     }
 
     if (["/anstalld.html", "/anstalld.js", "/helgdagar.mjs", "/bolagsbevakning.html"].includes(url.pathname)) {

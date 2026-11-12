@@ -257,10 +257,23 @@
           <div class="source-meta"><p>Informationens ägare: Petter Tiger</p><p>Källor: Lanteros personalhandbok och Försäkringskassan</p></div>
         </article>
       </section>
+      <div id="managed-content" aria-label="Tillägg från intranätets redaktörer"></div>
     </main>
 
     <footer class="footer"><span>Lantero · Anställd på Lantero</span><span>Informationen om helgdagar uppdateras automatiskt.</span></footer>
   </div>
   <script type="module" src="/anstalld.js"></script>
+  <script type="module">
+    import { loadPublishedSections, renderSectionContent } from '/intranet-content.js';
+    const container = document.getElementById('managed-content');
+    loadPublishedSections()
+      .then(sections => {
+        const section = sections.find(item => item.id === 'anstalld');
+        if (section) renderSectionContent(section, container);
+      })
+      .catch(error => {
+        container.textContent = `Tilläggsinformation kunde inte hämtas: ${error.message}`;
+      });
+  </script>
 </body>
 </html>

@@ -51,22 +51,42 @@
     h1 { margin-bottom: 7px; font-size: 32px; line-height: 1.12; font-weight: 700; }
     .page-subtitle { margin: 0; color: var(--muted); font-size: 15px; }
 
-    .sections-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 30px; }
-    .section-card { background: white; border: 1px solid var(--line); border-radius: 4px; padding: 20px; box-shadow: var(--shadow); }
-    .section-card.active { border-color: var(--forest); background: #f9faf8; }
-    .section-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
-    .section-header h3 { margin: 0; font-size: 16px; }
-    .section-toggle { display: flex; align-items: center; gap: 8px; margin-left: auto; }
-    .toggle-switch { position: relative; width: 48px; height: 28px; background: #ddd; border: none; border-radius: 14px; cursor: pointer; transition: background 0.3s; }
-    .toggle-switch.active { background: var(--forest); }
-    .toggle-switch::before { content: ""; position: absolute; width: 24px; height: 24px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: left 0.3s; box-shadow: 0 2px 4px rgba(0,0,0,.2); }
-    .toggle-switch.active::before { left: 22px; }
-    .section-description { color: var(--muted); font-size: 13px; line-height: 1.6; margin-bottom: 12px; }
+    .new-section-form, .section-card { background: white; border: 1px solid var(--line); border-radius: 4px; padding: 22px; box-shadow: var(--shadow); }
+    .new-section-form { margin-top: 26px; }
+    .new-section-form h2 { margin: 0 0 16px; font-size: 18px; }
+    .sections-grid { display: grid; gap: 18px; margin-top: 24px; }
+    .section-card.active { border-left: 4px solid var(--forest); }
+    .section-header, .section-header-main, .section-actions, .content-block-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .section-header { align-items: flex-start; }
+    .section-header h2 { margin: 0; font-size: 19px; }
+    .section-id { margin: 4px 0 0; color: var(--muted); font: 12px monospace; }
+    .section-edit-grid { display: grid; grid-template-columns: minmax(180px, .7fr) minmax(260px, 1.3fr); gap: 14px; margin-top: 18px; }
+    .admin-field { display: grid; gap: 6px; margin-bottom: 14px; }
+    .admin-field label { color: #46564e; font-size: 12px; font-weight: 700; }
+    .admin-field input, .admin-field textarea { width: 100%; padding: 10px 11px; border: 1px solid #d5ddd5; border-radius: 3px; color: var(--ink); font: inherit; font-size: 13px; }
+    .admin-field textarea { min-height: 78px; resize: vertical; line-height: 1.55; }
+    .admin-field input:focus, .admin-field textarea:focus { outline: 0; border-color: #638579; box-shadow: 0 0 0 3px rgba(23,72,61,.12); }
+    .visibility-note { margin: 0 0 16px; padding: 10px 12px; background: var(--soft-green); color: var(--forest-dark); font-size: 12px; line-height: 1.5; }
+    .section-toggle-label { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+    .section-toggle-label input { width: 18px; height: 18px; accent-color: var(--forest); }
+    .button-primary, .button-secondary, .button-danger { min-height: 38px; padding: 0 13px; border: 1px solid var(--forest); border-radius: 3px; background: var(--forest); color: white; font: inherit; font-size: 12px; font-weight: 700; }
+    .button-primary:hover { background: var(--forest-dark); }
+    .button-secondary { border-color: var(--line); background: white; color: var(--ink); }
+    .button-secondary:hover { border-color: #9caf9f; background: #f7f9f6; }
+    .button-danger { border-color: #a34f4d; background: white; color: #a34f4d; }
+    .button-danger:hover { background: #f8e9e6; }
     .section-status { display: inline-block; padding: 4px 8px; border-radius: 3px; font-size: 11px; font-weight: 600; }
     .section-status.active { background: #e8f5e1; color: #2d6e2a; }
     .section-status.inactive { background: #f0f0f0; color: #666; }
-    .section-url { color: var(--muted); font-size: 12px; margin-top: 12px; font-family: monospace; }
-
+    .content-editor { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+    .content-editor h3 { margin: 0 0 14px; font-size: 16px; }
+    .content-list { display: grid; gap: 12px; margin-bottom: 18px; }
+    .content-block-editor { padding: 15px; border: 1px solid var(--line); background: #fbfcfa; }
+    .content-block-header { margin-bottom: 12px; }
+    .content-block-header strong { font-size: 13px; }
+    .new-content-form { padding: 15px; border: 1px dashed #b9c9bd; background: #fbfcfa; }
+    .form-status { min-height: 18px; margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+    .form-status.error { color: #a34f4d; }
     .note-box { background: #fbf0e3; border: 1px solid #e8d5b7; border-radius: 4px; padding: 16px; margin-top: 24px; font-size: 13px; line-height: 1.6; color: #5a4a2a; }
     .note-box strong { color: #3a2a0a; }
   </style>
@@ -87,140 +107,267 @@
       <div class="page-head">
         <div>
           <p class="eyebrow">Konfiguration</p>
-          <h1>Hantera intranätavsnitt</h1>
-          <p class="page-subtitle">Aktivera och deaktivera sektioner för att styra vad som visas i intranätet för medarbetare</p>
+          <h1>Hantera intranätets innehåll</h1>
+          <p class="page-subtitle">Skapa avsnitt, redigera texter och välj vilka avsnitt som ska visas för medarbetarna.</p>
         </div>
       </div>
 
+      <form class="new-section-form" id="new-section-form">
+        <h2>Skapa nytt avsnitt</h2>
+        <div class="section-edit-grid">
+          <div class="admin-field">
+            <label for="new-section-name">Avsnittets namn</label>
+            <input id="new-section-name" name="name" maxlength="100" required>
+          </div>
+          <div class="admin-field">
+            <label for="new-section-description">Kort beskrivning</label>
+            <textarea id="new-section-description" name="description" maxlength="500"></textarea>
+          </div>
+        </div>
+        <button class="button-primary" type="submit">Skapa avsnitt</button>
+        <p class="form-status" id="create-status" role="status" aria-live="polite"></p>
+      </form>
+
       <div class="sections-grid" id="sections-container">
-        <!-- Fylls av JavaScript -->
+        <p>Laddar avsnitt …</p>
       </div>
 
       <div class="note-box">
-        <strong>💡 Tip:</strong> Aktivera avsnitt när de är klara för att visa dem för medarbetare. 
-        Bara aktiva avsnitt visas i navigationen och på startsidan.
+        <strong>Synlighet:</strong> Avsnitt är tills vidare synliga för alla medarbetare när de aktiveras. Individuell synlighet förbereds i datamodellen men kan slås på först när SSO och användarhantering är etablerade.
       </div>
     </main>
   </div>
 
   <script type="module">
-    const SECTIONS = [
-      {
-        id: 'anstalld',
-        name: 'Anställd på Lantero',
-        description: 'Information för anställda: rutiner, frånvaro, helgdagar etc.',
-        url: '/anstalld.html',
-        icon: '👤'
-      },
-      {
-        id: 'kunder',
-        name: 'Kunder & bolagsbevakning',
-        description: 'Avtalsöversikt, kundkarta och bolagsbevakning.',
-        url: '/kunder.html',
-        icon: '🏢'
-      },
-      {
-        id: 'media',
-        name: 'Media & Digitalt',
-        description: 'Mediaöversikt, webbtrafik-dashboard och publikationer.',
-        url: '/media.html',
-        icon: '📊',
-        comingSoon: true
-      },
-      {
-        id: 'resurser',
-        name: 'Resurser & Utveckling',
-        description: 'Verktyg, dokumentation och utvecklingsöversikt.',
-        url: '/resurser.html',
-        icon: '📚',
-        comingSoon: true
-      },
-      {
-        id: 'om-lantero',
-        name: 'Om Lantero',
-        description: 'Om företaget, värderingar, organisation och kontaktinfo.',
-        url: '/om-lantero.html',
-        icon: 'ℹ️',
-        comingSoon: true
-      }
-    ];
+    const container = document.getElementById('sections-container');
+    const createStatus = document.getElementById('create-status');
 
-    async function loadSectionStates() {
-      try {
-        const response = await fetch('/api/sections');
-        return await response.json();
-      } catch (error) {
-        console.error('Fel vid hämtning av sektioner:', error);
-        return {};
-      }
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        ...options,
+        headers: {
+          ...(options.body ? { 'Content-Type': 'application/json' } : {}),
+          ...options.headers
+        }
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || 'Begäran kunde inte genomföras.');
+      return payload;
     }
 
-    async function saveSectionState(sectionId, active) {
-      try {
-        const response = await fetch('/api/sections', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sectionId, active })
-        });
-        return await response.json();
-      } catch (error) {
-        console.error('Fel vid sparning av sektion:', error);
-      }
+    function setStatus(element, message, isError = false) {
+      element.textContent = message;
+      element.classList.toggle('error', isError);
     }
 
-    async function renderSections() {
-      const states = await loadSectionStates();
-      const container = document.getElementById('sections-container');
-      container.innerHTML = '';
+    function addField(parent, labelText, value, { multiline = false, maxLength, required = false } = {}) {
+      const wrapper = document.createElement('div');
+      wrapper.className = 'admin-field';
+      const label = document.createElement('label');
+      const input = document.createElement(multiline ? 'textarea' : 'input');
+      const id = `field-${crypto.randomUUID()}`;
+      label.htmlFor = id;
+      label.textContent = labelText;
+      input.id = id;
+      input.value = value || '';
+      input.required = required;
+      if (maxLength) input.maxLength = maxLength;
+      wrapper.append(label, input);
+      parent.append(wrapper);
+      return input;
+    }
 
-      SECTIONS.forEach(section => {
-        const isActive = states[section.id] ?? section.id === 'anstalld';
-        const card = document.createElement('div');
-        card.className = `section-card ${isActive ? 'active' : ''}`;
+    async function reloadSections() {
+      const result = await api('/api/admin/sections');
+      renderSections(result.sections);
+    }
 
-        const statusText = section.comingSoon 
-          ? 'Kommer snart' 
-          : (isActive ? 'Aktiverad' : 'Inaktiv');
-
-        let toggleHtml = '';
-        if (!section.comingSoon) {
-          toggleHtml = `
-            <div class="section-toggle">
-              <button class="toggle-switch ${isActive ? 'active' : ''}" 
-                      data-section="${section.id}"
-                      aria-label="Slå ${isActive ? 'av' : 'på'} ${section.name}"></button>
-            </div>
-          `;
-        }
-
-        card.innerHTML = `
-          <div class="section-header">
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <span style="font-size: 24px;">${section.icon}</span>
-              <h3>${section.name}</h3>
-            </div>
-            ${toggleHtml}
-          </div>
-          <p class="section-description">${section.description}</p>
-          <span class="section-status ${section.comingSoon ? 'inactive' : (isActive ? 'active' : 'inactive')}">${statusText}</span>
-          <div class="section-url">URL: ${section.url}</div>
-        `;
-
-        if (!section.comingSoon) {
-          const button = card.querySelector('.toggle-switch');
-          button.addEventListener('click', async (e) => {
-            e.preventDefault();
-            const newState = !isActive;
-            await saveSectionState(section.id, newState);
-            renderSections();
-          });
-        }
-
-        container.appendChild(card);
+    async function saveContent(sectionId, contentId, title, body) {
+      await api(`/api/admin/sections/${encodeURIComponent(sectionId)}/content/${contentId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ title, body })
       });
     }
 
-    renderSections();
+    function renderContentBlock(section, item) {
+      const form = document.createElement('form');
+      form.className = 'content-block-editor';
+      const header = document.createElement('div');
+      header.className = 'content-block-header';
+      const title = document.createElement('strong');
+      title.textContent = item.title || 'Textblock utan rubrik';
+      header.append(title);
+      const status = document.createElement('p');
+      status.className = 'form-status';
+      const fields = document.createElement('div');
+      const titleInput = addField(fields, 'Underrubrik (valfri)', item.title, { maxLength: 160 });
+      const bodyInput = addField(fields, 'Text', item.body, { multiline: true, maxLength: 20000 });
+      const actions = document.createElement('div');
+      actions.className = 'section-actions';
+      const save = document.createElement('button');
+      save.className = 'button-secondary';
+      save.type = 'submit';
+      save.textContent = 'Spara text';
+      const remove = document.createElement('button');
+      remove.className = 'button-danger';
+      remove.type = 'button';
+      remove.textContent = 'Ta bort';
+      actions.append(save, remove);
+      form.append(header, fields, actions, status);
+      form.addEventListener('submit', async event => {
+        event.preventDefault();
+        try {
+          await saveContent(section.id, item.id, titleInput.value, bodyInput.value);
+          title.textContent = titleInput.value.trim() || 'Textblock utan rubrik';
+          setStatus(status, 'Texten har sparats.');
+        } catch (error) {
+          setStatus(status, error.message, true);
+        }
+      });
+      remove.addEventListener('click', async () => {
+        if (!window.confirm('Ta bort det här textblocket?')) return;
+        try {
+          await api(`/api/admin/sections/${encodeURIComponent(section.id)}/content/${item.id}`, { method: 'DELETE' });
+          await reloadSections();
+        } catch (error) {
+          setStatus(status, error.message, true);
+        }
+      });
+      return form;
+    }
+
+    function renderSection(section) {
+      const card = document.createElement('article');
+      card.className = `section-card ${section.isActive ? 'active' : ''}`;
+      const header = document.createElement('div');
+      header.className = 'section-header';
+      const heading = document.createElement('div');
+      const name = document.createElement('h2');
+      name.textContent = section.name;
+      const id = document.createElement('p');
+      id.className = 'section-id';
+      id.textContent = section.id;
+      heading.append(name, id);
+      const statusBadge = document.createElement('span');
+      statusBadge.className = `section-status ${section.isActive ? 'active' : 'inactive'}`;
+      statusBadge.textContent = section.isActive ? 'Aktivt' : 'Dolt';
+      header.append(heading, statusBadge);
+
+      const editGrid = document.createElement('div');
+      editGrid.className = 'section-edit-grid';
+      const nameInput = addField(editGrid, 'Namn', section.name, { maxLength: 100, required: true });
+      const descriptionInput = addField(editGrid, 'Beskrivning', section.description, { multiline: true, maxLength: 500 });
+      const visibility = document.createElement('p');
+      visibility.className = 'visibility-note';
+      visibility.textContent = 'Synlighet: alla medarbetare. Individuella målgrupper blir tillgängliga efter införande av SSO.';
+      const activeLabel = document.createElement('label');
+      activeLabel.className = 'section-toggle-label';
+      const activeInput = document.createElement('input');
+      activeInput.type = 'checkbox';
+      activeInput.checked = section.isActive;
+      const activeText = document.createElement('span');
+      activeText.textContent = 'Visa för medarbetare';
+      activeLabel.append(activeInput, activeText);
+      const saveButton = document.createElement('button');
+      saveButton.type = 'button';
+      saveButton.className = 'button-primary';
+      saveButton.textContent = 'Spara avsnitt';
+      const sectionStatus = document.createElement('p');
+      sectionStatus.className = 'form-status';
+      saveButton.addEventListener('click', async () => {
+        try {
+          await api(`/api/admin/sections/${encodeURIComponent(section.id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({
+              name: nameInput.value,
+              description: descriptionInput.value,
+              isActive: activeInput.checked,
+              visibilityMode: 'all'
+            })
+          });
+          name.textContent = nameInput.value.trim();
+          card.classList.toggle('active', activeInput.checked);
+          statusBadge.classList.toggle('active', activeInput.checked);
+          statusBadge.classList.toggle('inactive', !activeInput.checked);
+          statusBadge.textContent = activeInput.checked ? 'Aktivt' : 'Dolt';
+          setStatus(sectionStatus, 'Avsnittet har sparats.');
+        } catch (error) {
+          setStatus(sectionStatus, error.message, true);
+        }
+      });
+
+      const contentEditor = document.createElement('section');
+      contentEditor.className = 'content-editor';
+      const contentHeading = document.createElement('h3');
+      contentHeading.textContent = 'Underavsnitt och texter';
+      const contentList = document.createElement('div');
+      contentList.className = 'content-list';
+      for (const item of section.content) contentList.append(renderContentBlock(section, item));
+
+      const newContentForm = document.createElement('form');
+      newContentForm.className = 'new-content-form';
+      const newContentHeading = document.createElement('h3');
+      newContentHeading.textContent = 'Lägg till underavsnitt eller text';
+      const newFields = document.createElement('div');
+      const newTitleInput = addField(newFields, 'Underrubrik (valfri)', '', { maxLength: 160 });
+      const newBodyInput = addField(newFields, 'Text', '', { multiline: true, maxLength: 20000 });
+      const addContentButton = document.createElement('button');
+      addContentButton.type = 'submit';
+      addContentButton.className = 'button-secondary';
+      addContentButton.textContent = 'Lägg till text';
+      const contentStatus = document.createElement('p');
+      contentStatus.className = 'form-status';
+      newContentForm.append(newContentHeading, newFields, addContentButton, contentStatus);
+      newContentForm.addEventListener('submit', async event => {
+        event.preventDefault();
+        try {
+          await api(`/api/admin/sections/${encodeURIComponent(section.id)}/content`, {
+            method: 'POST',
+            body: JSON.stringify({ title: newTitleInput.value, body: newBodyInput.value })
+          });
+          await reloadSections();
+        } catch (error) {
+          setStatus(contentStatus, error.message, true);
+        }
+      });
+      contentEditor.append(contentHeading, contentList, newContentForm);
+      card.append(header, editGrid, visibility, activeLabel, saveButton, sectionStatus, contentEditor);
+      return card;
+    }
+
+    function renderSections(sections) {
+      container.replaceChildren(...sections.map(renderSection));
+    }
+
+    document.getElementById('new-section-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const formData = new FormData(form);
+      try {
+        await api('/api/admin/sections', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: formData.get('name'),
+            description: formData.get('description'),
+            visibilityMode: 'all'
+          })
+        });
+        form.reset();
+        setStatus(createStatus, 'Avsnittet skapades. Lägg till innehåll och aktivera det när det är klart.');
+        await reloadSections();
+      } catch (error) {
+        setStatus(createStatus, error.message, true);
+      }
+    });
+
+    reloadSections().catch(error => {
+      container.replaceChildren();
+      const message = document.createElement('p');
+      message.className = 'form-status error';
+      message.setAttribute('role', 'alert');
+      message.textContent = error.message;
+      container.append(message);
+    });
   </script>
 </body>
 </html>

@@ -13,6 +13,9 @@ function createDatabase() {
   db.exec(readFileSync(new URL("../database/schema.sql", import.meta.url), "utf8"));
   db.exec(readFileSync(new URL("../database/migrations/0006_municipality_customers.sql", import.meta.url), "utf8"));
   db.exec(readFileSync(new URL("../database/migrations/0007_region_customers_and_customer_import.sql", import.meta.url), "utf8"));
+  db.exec(readFileSync(new URL("../database/migrations/0010_intranet_sections.sql", import.meta.url), "utf8"));
+  db.exec(readFileSync(new URL("../database/migrations/0011_intranet_section_names.sql", import.meta.url), "utf8"));
+  db.exec(readFileSync(new URL("../database/migrations/0012_intranet_content_and_visibility.sql", import.meta.url), "utf8"));
   db.exec(`
     INSERT INTO app_user (id, email, role) VALUES
       (1, 'admin@example.test', 'admin'),
@@ -53,9 +56,10 @@ function createDatabase() {
   return { db, env: { D8: binding } };
 }
 
-async function request(env, path, token, body) {
+async function request(env, path, token, body, method) {
+  const requestMethod = method || (body === undefined ? "GET" : "PUT");
   return worker.fetch(new Request(`https://example.test${path}`, {
-    method: body === undefined ? "GET" : "PUT",
+    method: requestMethod,
     headers: {
       ...(token ? { cookie: `bolagsinfo_session=${token}` } : {}),
       ...(body === undefined ? {} : { "content-type": "application/json" })
@@ -63,6 +67,97 @@ async function request(env, path, token, body) {
     ...(body === undefined ? {} : { body: JSON.stringify(body) })
   }), env);
 }
+
+test("intranet sections and content are editable by admins and published to signed-in viewers", async () => {
+  const { db, env } = createDatabase();
+  env.ASSETS = {
+    async fetch(request) {
+      return new Response(new URL(request.url).pathname);
+    }
+  };
+  try {
+    assert.equal((await request(env, "/api/admin/sections", "viewer-token")).status, 403);
+    assert.equal((await request(env, "/api/admin/sections", undefined)).status, 401);
+
+    const createResponse = await request(env, "/api/admin/sections", "admin-token", {
+      name: "Lärande & utveckling",
+      description: "Guider för medarbetare.",
+      visibilityMode: "all"
+    }, "POST");
+    assert.equal(createResponse.status, 201);
+    const { id } = await createResponse.json();
+    assert.equal(id, "larande-utveckling");
+
+    const addContentResponse = await request(env, `/api/admin/sections/${id}/content`, "admin-token", {
+      title: "Introduktion",
+      body: "Första raden.\nAndra raden."
+    }, "POST");
+    assert.equal(addContentResponse.status, 201);
+
+    const hiddenSections = await (await request(env, "/api/sections", "viewer-token")).json();
+    assert.equal(hiddenSections.sections.some(section => section.id === id), false);
+
+    const activationResponse = await request(env, `/api/admin/sections/${id}`, "admin-token", {
+      name: "Lärande & utveckling",
+      description: "Guider för medarbetare.",
+      isActive: true,
+      visibilityMode: "all"
+    }, "PATCH");
+    assert.equal(activationResponse.status, 200);
+
+    const publishedSections = await (await request(env, "/api/sections", "viewer-token")).json();
+    const publishedSection = publishedSections.sections.find(section => section.id === id);
+    assert.equal(publishedSection.visibilityMode, "all");
+    assert.deepEqual(publishedSection.content.map(({ title, body }) => ({ title, body })), [{
+      title: "Introduktion",
+      body: "Första raden.\nAndra raden."
+    }]);
+
+    const editContentResponse = await request(env, `/api/admin/sections/${id}/content/1`, "admin-token", {
+      title: "Uppdaterad introduktion",
+      body: "Uppdaterad text."
+    }, "PATCH");
+    assert.equal(editContentResponse.status, 200);
+    const updatedSections = await (await request(env, "/api/sections", "viewer-token")).json();
+    assert.equal(
+      updatedSections.sections.find(section => section.id === id).content[0].title,
+      "Uppdaterad introduktion"
+    );
+
+    const deniedEdit = await request(env, `/api/admin/sections/${id}/content/1`, "viewer-token", {
+      title: "Försök",
+      body: "Ej tillåtet"
+    }, "PATCH");
+    assert.equal(deniedEdit.status, 403);
+
+    const deniedScope = await request(env, `/api/admin/sections/${id}`, "admin-token", {
+      name: "Lärande & utveckling",
+      description: "Guider för medarbetare.",
+      isActive: true,
+      visibilityMode: "selected"
+    }, "PATCH");
+    assert.equal(deniedScope.status, 400);
+
+    db.prepare("UPDATE intranet_section SET visibility_mode = 'selected' WHERE id = ?").run(id);
+    db.prepare("INSERT INTO intranet_section_user (section_id, user_id) VALUES (?, 2)").run(id);
+    const selectedSections = await (await request(env, "/api/sections", "viewer-token")).json();
+    assert.equal(selectedSections.sections.some(section => section.id === id), true);
+    const excludedSections = await (await request(env, "/api/sections", "admin-token")).json();
+    assert.equal(excludedSections.sections.some(section => section.id === id), false);
+    db.prepare("UPDATE intranet_section SET visibility_mode = 'selected' WHERE id = 'kunder'").run();
+    db.prepare("INSERT INTO intranet_section_user (section_id, user_id) VALUES ('kunder', 2)").run();
+    assert.equal((await request(env, "/kunder.html", "viewer-token")).status, 200);
+    const excludedPage = await request(env, "/kunder.html", "admin-token");
+    assert.equal(excludedPage.status, 302);
+
+    await db.prepare("UPDATE intranet_section SET is_active = 0 WHERE id = 'kunder'").run();
+    const hiddenPage = await request(env, "/kunder.html", "viewer-token");
+    assert.equal(hiddenPage.status, 302);
+    assert.equal(hiddenPage.headers.get("location"), "/");
+  } finally {
+    db.close();
+  }
+});
 
 test("employee information assets require an active session", async () => {
   const { db, env } = createDatabase();

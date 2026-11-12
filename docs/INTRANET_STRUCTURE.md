@@ -57,15 +57,18 @@ Intranätet är strukturerat så att bara de sektioner som har innehål och är 
 
 ### Funktioner
 Admin kan:
-1. Se alla intranätsektioner
-2. Aktivera/deaktivera sektioner med enkla toggleknappar
-3. Se status på varje sektion
-4. Se vilken URL varje sektion har
+1. Skapa nya avsnitt och redigera namn och beskrivning
+2. Aktivera/deaktivera avsnitt
+3. Lägga till och redigera underrubriker och textblock
+4. Ta bort textblock
+5. Se att synligheten för närvarande gäller alla medarbetare
 
 ### Användning
 1. Gå till `/admin.html`
-2. För varje sektion som är klar: Klicka på toggle-knappen för att aktivera
-3. Sektionen visas direkt på startsidan för medarbetare
+2. Skapa avsnitt eller välj ett befintligt
+3. Lägg till och spara textblock
+4. Aktivera avsnittet när innehållet är redo
+5. Avsnittet och dess text visas för alla inloggade medarbetare
 
 ## Startsida (`/index.html`)
 
@@ -76,32 +79,38 @@ Admin kan:
 - Länk till admin-panel (för administratörer)
 
 ### Dynamisk rendering
-Startsidan hämtar automatiskt listan över aktiva sektioner från API:n:
-- `GET /api/sections` - Hämtar alla sektioner och deras status
-- Data cachas inte, så ändringar från admin visas direkt
+Startsidan hämtar aktiva avsnitt, namn och beskrivningar från `GET /api/sections`. Fördefinierade avsnitt länkar till sina befintliga sidor; nya avsnitt öppnas i den generiska innehållsvyn.
+
+## Innehåll och synlighet
+
+Admininnehåll sparas som ren text med valfri underrubrik. HTML-kod tolkas inte, vilket gör att text visas säkert som text. Sparat innehåll visas på respektive avsnittssida.
+
+Synlighetsläget är tills vidare `all`: alla inloggade medarbetare ser aktiverade avsnitt. Individuell åtkomst väljs inte i admin ännu. Migration `0012_intranet_content_and_visibility.sql` förbereder ett läge för valda användare och en koppling till användarkonton; individuell synlighet ska aktiveras först när långsiktig SSO- och användarhantering finns på plats.
 
 ## API-endpoints
 
 ### `GET /api/sections`
-Hämtar status på alla sektioner.
+Hämtar aktiverade avsnitt och deras publicerade textblock.
 - Kräver: Inloggning
-- Returnerar: Objekt med `{ sectionId: boolean, ... }`
+- Returnerar: `{ sections: [{ id, name, description, visibilityMode, content }] }`
 
-```json
-{
-  "anstalld": true,
-  "kunder": false,
-  "media": false,
-  "resurser": false,
-  "om-lantero": false
-}
-```
-
-### `POST /api/sections`
-Uppdaterar status på en sektion.
+### `GET /api/admin/sections`
+Hämtar alla avsnitt, inklusive dolda, och deras textblock.
 - Kräver: Admin-behörigheter
-- Body: `{ sectionId: "string", active: boolean }`
-- Returnerar: `{ ok: true }` eller felmeddelande
+
+### `POST /api/admin/sections`
+Skapar ett avsnitt. Nya avsnitt är dolda tills admin aktiverar dem.
+- Kräver: Admin-behörigheter
+- Body: `{ name, description, visibilityMode: "all" }`
+
+### `PATCH /api/admin/sections/:id`
+Uppdaterar namn, beskrivning och aktiveringsstatus.
+- Kräver: Admin-behörigheter
+- Body: `{ name, description, isActive, visibilityMode: "all" }`
+
+### `/api/admin/sections/:id/content`
+Adminskyddade `POST`, `PATCH` och `DELETE`-operationer för textblock. Textblock har valfri underrubrik och ren text.
+- Kräver: Admin-behörigheter
 
 ## Databas
 
@@ -117,32 +126,22 @@ Kolumner:
 - `created_at` (TEXT): Skapad tid
 - `updated_at` (TEXT): Senast uppdaterad
 - `updated_by` (INTEGER): Admin-användar-ID som gjorde sista ändringar
+- `visibility_mode` (TEXT): `all` nu; `selected` reserverat för framtida individuella målgrupper
 
-### Migration
-Fil: `database/migrations/0010_intranet_sections.sql`
-- Skapar tabellen och seedar default-sektioner
-- "Anställd på Lantero" och "Kunder & bolagsbevakning" är aktiverade som standard
-- Migration `0011_intranet_section_names.sql` uppdaterar namn och aktiverar kundsektionen
+### Innehållstabeller
+- `intranet_content_block`: underrubrik, text, sorteringsordning och ändringsmetadata per avsnitt
+- `intranet_section_user`: förberedd koppling mellan avsnitt och användarkonton för framtida selektiv åtkomst
+
+### Migrationer
+- `0010_intranet_sections.sql` skapar och fyller grundavsnitten
+- `0011_intranet_section_names.sql` uppdaterar namn och aktiverar kundsektionen
+- `0012_intranet_content_and_visibility.sql` skapar textblock och framtida synlighetsmodell
 
 ## Workflow för att lägga till nytt innehål
 
-1. **Skapa sektionssida** (t.ex., `/public/kunder.html`)
-   - Använd befintlig mall (t.ex., från `anstalld.html`)
-   - Bygg innehålet
-   - Testa startsidan visar den inte (den är inte aktiverad ännu)
+1. Skapa avsnitt i `/admin.html`
+2. Lägg till underrubriker och textblock i admin
+3. Förhandsgranska genom att öppna avsnittssidan medan det är aktiverat
+4. Aktivera avsnittet när innehållet är redo
 
-2. **Aktivera i admin**
-   - Gå till `/admin.html`
-   - Klicka toggle för sektionen
-   - Sektion visas nu på startsidan
-
-3. **Öppna för medarbetare**
-   - Sektionen är nu synlig för alla inloggade
-   - Kan deaktiveras senare om behövs
-
-## Framtida utökning
-
-- **Användarbehörigheter**: Vissa sektioner kunde begränsas till specifika roller
-- **Sektionsinnehål-hantering**: Admin-gränssnitt för att redigera sektionsinnehål
-- **Medarbetare-preferenser**: Användare kunde välja vilka sektioner de vill se
-- **Notifikationer**: Varningar när avtalsförfallodatum närmar sig
+Individuella målgrupper är framtida arbete och ska inte aktiveras innan SSO-identiteterna är etablerade.
