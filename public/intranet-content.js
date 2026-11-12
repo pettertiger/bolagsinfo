@@ -1,8 +1,21 @@
 export async function loadPublishedSections() {
   const response = await fetch("/api/sections");
-  const result = await response.json();
-  if (!response.ok) throw new Error(result.error || "Avsnitten kunde inte hämtas.");
-  if (!Array.isArray(result.sections)) throw new Error("Svaret från servern hade ett oväntat format.");
+  let result;
+  try {
+    result = JSON.parse(await response.text());
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    const contentType = response.headers.get("content-type");
+    const responseType = contentType ? ` (${contentType})` : "";
+    const migrationHint = response.status >= 500
+      ? " Kontrollera serverloggarna och att migration 0012 är applicerad i D1."
+      : "";
+    throw new Error(
+      `Servern returnerade ett ogiltigt svar för avsnitten (HTTP ${response.status}${responseType}).${migrationHint}`
+    );
+  }
+  if (!response.ok) throw new Error(result?.error || `Avsnitten kunde inte hämtas (HTTP ${response.status}).`);
+  if (!Array.isArray(result?.sections)) throw new Error("Svaret från servern hade ett oväntat format.");
   return result.sections;
 }
 
