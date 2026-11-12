@@ -73,7 +73,7 @@
     .page-subtitle { margin: 0; color: var(--muted); font-size: 15px; }
 
     /* ── Tabs ── */
-    .tabs { display: flex; gap: 26px; border-bottom: 1px solid var(--line); margin-bottom: 28px; }
+    .tabs { display: flex; gap: 26px; border-bottom: 1px solid var(--line); margin-bottom: 28px; overflow-x: auto; }
     .tabs a {
       position: relative; display: block; padding: 0 0 13px;
       text-decoration: none; color: var(--muted); font-size: 14px; font-weight: 600;
@@ -322,6 +322,8 @@
       <nav class="breadcrumbs" aria-label="Brödsmulor">
         <a href="/">Lantero</a>
         <span aria-hidden="true">/</span>
+        <a href="/kunder.html">Kunder &amp; bolagsbevakning</a>
+        <span aria-hidden="true">/</span>
         <span>Kundkarta</span>
       </nav>
 
@@ -331,10 +333,11 @@
         <p class="page-subtitle">Alla Sveriges 290 kommuner – med produktstatus som uppdateras av administratörer och visas på kartan.</p>
       </header>
 
-      <nav class="tabs" aria-label="Sidor">
-        <a href="/">Avtal</a>
+      <nav class="tabs" aria-label="Kunder och bolagsbevakning">
+        <a href="/kunder.html">Översikt</a>
+        <a href="/bolagsbevakning.html#tillvaxt">Bolagsbevakning</a>
+        <a href="/bolagsbevakning.html#avtal">Avtalsöversikt</a>
         <a href="/karta.html" aria-current="page">Kundkarta</a>
-        <a href="/anstalld.html">Anställd</a>
       </nav>
 
       <!-- Municipality list and map -->

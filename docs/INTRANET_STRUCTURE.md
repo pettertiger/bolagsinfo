@@ -6,7 +6,7 @@ Intranätet är strukturerat så att bara de sektioner som har innehål och är 
 
 ## Intranätsektioner
 
-### 1. **Anställd** ✅ (Aktiverad)
+### 1. **Anställd på Lantero** ✅ (Aktiverad)
 - Information för alla anställda
 - Rutiner för sjukfrånvaro och frånvaro
 - Helgdagar och arbetsschema
@@ -14,13 +14,15 @@ Intranätet är strukturerat så att bara de sektioner som har innehål och är 
 - URL: `/anstalld.html`
 - Status: **Fylld med innehål**
 
-### 2. **Kunder & Kontrakt** (Kommande)
-- Kundöversikt och filtreringsmöjligheter
+### 2. **Kunder & bolagsbevakning** ✅ (Aktiverad)
 - Avtalsöversikt med förfallodatum
-- Information om nya affärer
-- Säljstatus och pipeline
+- Kundkarta med kommuner och regioner
+- Bolagsbevakning, inklusive nya bolag i kategorin 50–99 anställda
+- Sidan fungerar som nav till respektive verktyg
 - URL: `/kunder.html`
-- Status: **Inte startad**
+- Avtalsöversikt och bolagsbevakning: `/bolagsbevakning.html`
+- Kundkarta: `/karta.html`
+- Status: **Fyllt med innehåll**
 
 ### 3. **Media & Digitalt** (Kommande)
 - Mediaöversikt och publiceringsschema
@@ -119,7 +121,8 @@ Kolumner:
 ### Migration
 Fil: `database/migrations/0010_intranet_sections.sql`
 - Skapar tabellen och seedar default-sektioner
-- "Anställd" är aktiverad som standard
+- "Anställd på Lantero" och "Kunder & bolagsbevakning" är aktiverade som standard
+- Migration `0011_intranet_section_names.sql` uppdaterar namn och aktiverar kundsektionen
 
 ## Workflow för att lägga till nytt innehål
 

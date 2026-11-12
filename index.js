@@ -1103,7 +1103,7 @@ export default {
       return json({ id: contractId }, 201);
     }
 
-    if (["/anstalld.html", "/anstalld.js", "/helgdagar.mjs"].includes(url.pathname)) {
+    if (["/anstalld.html", "/anstalld.js", "/helgdagar.mjs", "/bolagsbevakning.html"].includes(url.pathname)) {
       const result = await requireSession(request, env);
       if (result.response) {
         return new Response(null, {

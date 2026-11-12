@@ -12,10 +12,11 @@
 │  │  Välkommen till Lanteros intranät                 │ │
 │  │                                                    │ │
 │  │ ┌──────────────┐  ┌──────────────┐  ┌──────────┐ │ │
-│  │ │ 👤 Anställd  │  │ 🏢 Kunder    │  │ 📊 Media │ │ │
+│  │ │ 👤 Anställd  │  │ 🏢 Kunder &  │  │ 📊 Media │ │ │
+│  │ │ på Lantero   │  │ bolagsbevakn.│  │          │ │ │
 │  │ │              │  │              │  │          │ │ │
-│  │ │ Info för     │  │ Kundöversikt │  │ Webbtraf │ │ │
-│  │ │ anställda    │  │ och avtal    │  │ik-dash   │ │ │
+│  │ │ Info för     │  │ Avtal, karta │  │ Webbtraf │ │ │
+│  │ │ anställda    │  │ och bolag    │  │ik-dash   │ │ │
 │  │ └──────────────┘  └──────────────┘  └──────────┘ │ │
 │  │                                                    │ │
 │  │         Endast AKTIVA sektioner visas             │ │
@@ -122,7 +123,9 @@ intra/
 ├── public/
 │   ├── index.html          ← Startsida (dynamisk)
 │   ├── admin.html          ← Admin-panel
-│   ├── anstalld.html       ← Anställd-sektion ✅
+│   ├── anstalld.html       ← Anställd på Lantero ✅
+│   ├── kunder.html         ← Nav till avtal, karta och bolagsbevakning ✅
+│   ├── bolagsbevakning.html← Bolagsbevakning och avtalsöversikt ✅
 │   ├── anstalld.js
 │   ├── helgdagar.mjs
 │   ├── karta.html          ← Kommer: Kunder-sektion
